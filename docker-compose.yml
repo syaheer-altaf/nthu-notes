@@ -9,7 +9,7 @@ services:
     command: >
       sh -c "
         mkdir -p /workdir/compiled &&
-        pdflatex -output-directory=/workdir/compiled /workdir/randomized_algorithm/1_discrete_probability_note/1_discrete_probability_note.tex &&
-        pdflatex -output-directory=/workdir/compiled /workdir/randomized_algorithm/2_selected_problems_in_discrete_probability/2_selected_problems_in_discrete_probability.tex &&
-        pdflatex -output-directory=/workdir/compiled /workdir/randomized_algorithm/3_some_randomized_algorithms/3_some_randomized_algorithms.tex
+        pdflatex -output-directory=/workdir/compiled /workdir/randomized_algorithm/1_discrete_probability_note.tex &&
+        pdflatex -output-directory=/workdir/compiled /workdir/randomized_algorithm/2_selected_problems_in_discrete_probability.tex &&
+        pdflatex -output-directory=/workdir/compiled /workdir/randomized_algorithm/3_some_randomized_algorithms.tex
       "
