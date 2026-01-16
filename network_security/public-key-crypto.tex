@@ -1,0 +1,728 @@
+\documentclass[12pt,a4paper]{article}
+
+% ------------------------------------------------------------------
+% Core encodings & fonts
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{enumitem}
+% Page geometry
+\usepackage{geometry}
+\geometry{margin=1in}
+
+% Maths & theorems
+\usepackage{amsmath,amssymb,amsthm, mathrsfs}
+\usepackage{mathtools}
+% Algorithms
+\usepackage{algorithm}
+\usepackage[noend]{algorithmic}
+\renewcommand{\algorithmiccomment}[1]{\hfill$\triangleright$ #1}
+\newcommand{\CALL}[1]{\textbf{call}~#1}   % helper for “call Proc”
+
+% Graphics, colour, code
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+
+% Captions
+\usepackage{caption}
+\usepackage{subcaption}
+
+% Hyper‑links
+\usepackage{hyperref}
+
+% ------------------------------------------------------------------
+% Theorem environments
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}{Definition}
+\newenvironment{analysis}[1][Analysis]%
+{\begin{proof}[#1]}%
+	{\end{proof}}
+\begin{document}
+	
+	\title{Notes on Public-key Cryptography}
+	\author{Mohamed Syaheer Altaf}
+	\maketitle
+	
+	Public--or asymmetric--key cryptography is an intriguing approach to encrypting and decrypting plaintext messages that hinges on certain \emph{hard} mathematical problems. Unlike symmetric-key cryptography, public-key cryptography uses a pair of keys: a \textbf{public key}, which is used to encrypt data, and a \textbf{private key}, which is used to decrypt it. In this note, we examine the mathematics underpinning these cryptosystems, drawing on abstract algebra and core concepts from number theory. We then discuss and analyze several foundational algorithms and protocols, including RSA, Rabin, and ElGamal.
+	
+	\section{Some Mathematical Ideas for Public-key Cryptography}
+	For prerequisites, let us recall modular arithmetic, sometimes called \emph{clock arithmetic}. 
+	Given an integer \(n \ge 1\), called the \emph{modulus}, two integers \(a\) and \(b\) are said to be \emph{congruent modulo} \(n\) if \(n\) divides their difference; that is,
+	\[
+	n \mid (a-b),
+	\]
+	and equivalently,
+	\[
+	a \equiv b \pmod{n}.
+	\]
+	This is closely related to the \textbf{Euclidean division lemma}: given integers \(a\) and \(n\), there exist \emph{unique} integers \(m\) and \(b\) such that
+	\[
+	a = mn + b \qquad \text{with } 0 \le b < |n|.
+	\]
+	
+	This motivates the operation \(a \bmod n = b\), where \(b\) is the remainder when \(a\) is divided by \(n\) thereby giving us the relation \(a \equiv b \pmod{n}\) (note that \(\bmod\) defines a remainder operation, whereas congruence \(\equiv\) defines an equivalence relation).
+	We record several useful properties under addition (\(+\)) and multiplication (\(\cdot\)), whose proofs are omitted:
+	\begin{itemize}
+		\item \(a + b \equiv (a \bmod n) + (b \bmod n) \pmod{n}.\)
+		\item \(a \cdot b \equiv (a \bmod n)\cdot (b \bmod n) \pmod{n}.\)
+		\item If \(a + b \equiv a + c \pmod{n}\), then \(b \equiv c \pmod{n}.\)
+		\item If \(a \cdot b \equiv a \cdot c \pmod{n}\), then \(b \equiv c \pmod{n}\) \textbf{only if} \(a\) is \emph{relatively prime} to \(n\); i.e., \(\gcd(a,n)=1.\)
+	\end{itemize}
+	
+	It is also worthwhile to examine \emph{modular exponentiation}, namely, how to efficiently compute \(a^{m} \bmod n\).
+	For instance, to compute \(17^{11} \bmod 35\), a direct evaluation of \(17^{11}\) is impractical: the value is on the order of \(10^{13}\), and computing with such large intermediate numbers is unnecessary.
+	However, because we ultimately reduce modulo \(35\), we can repeatedly apply modular reduction throughout the computation---capitalizing on the multiplication property of modular arithmetic.
+	
+	In this example, we may write
+	\[
+	17^{11} = 17^{2}\cdot 17^{3}\cdot 17^{3}\cdot 17^{3}.
+	\]
+	Thus,
+	\begin{align*}
+		17^{11} \bmod 35
+		&= \bigl((289 \bmod 35)\cdot(4913 \bmod 35)\cdot(4913 \bmod 35)\cdot(4913 \bmod 35)\bigr)\bmod 35 \\
+		&= (9 \cdot 13 \cdot 13 \cdot 13)\bmod 35 \\
+		&= 33.
+	\end{align*}
+	
+	In practice, computers typically use the \emph{repeated-squaring} method: one writes the exponent as a sum of powers of two (e.g., \(11 = 8 + 2 + 1\)) and obtains the needed modular powers by successively squaring and reducing modulo \(n\).
+	This achieves the same principle--keeping intermediate values small--while being computationally efficient.
+	
+	\subsection{Abstract Algebra}
+	For this part, we are going to look at several algebraic structures: groups, rings, and fields. For any such structure, one must carefully verify its \emph{axioms} under the relevant operations to determine whether it indeed belongs to the stated class.
+	
+	\subsubsection{Groups}
+	A \textbf{group} is a set \(G\) equipped with a binary operation \(*\)---often denoted by \((G, *)\)---that satisfies the following axioms:
+	\begin{enumerate}
+		\item \textbf{Closure.} For all \(a,b \in G\), we have \(a*b \in G\).
+		\item \textbf{Associativity.} For all \(a,b,c \in G\), \((a*b)*c = a*(b*c)\).
+		\item \textbf{Identity.} There exists an element \(e \in G\) such that \(e*a = a*e = a\) for all \(a \in G\).
+		\item \textbf{Inverse.} For every \(a \in G\), there exists an element \(a^{-1} \in G\) such that \(a*a^{-1} = a^{-1}*a = e\).
+	\end{enumerate}
+	\textbf{Note.} \emph{Commutativity} (i.e., \(a*b=b*a\)) is not required. If a group does satisfy commutativity, then it is called an \emph{abelian} group.
+	
+	\subsubsection{Rings}
+	A \textbf{ring} is a set \(R\) equipped with \emph{two} binary operations, \(+\) and \(*\)---often denoted by \((R,+,*)\)---that satisfies the following axioms:
+	\begin{enumerate}
+		\item \((R,+)\) is an abelian group (in particular, addition is associative and commutative, has an identity \(0\), and every element has an additive inverse).
+		\item \((R,*)\) is a semigroup:
+		\begin{itemize}
+			\item \textbf{Closure.} For all \(a,b \in R\), \(a*b \in R\).
+			\item \textbf{Associativity.} For all \(a,b,c \in R\), \((a*b)*c = a*(b*c)\).
+		\end{itemize}
+		\item \textbf{Distributivity.} For all \(a,b,c \in R\), \(a*(b+c) = a*b + a*c\) and \((b+c)*a = b*a + c*a\).
+	\end{enumerate}
+	\textbf{Note.} If \(*\) is also commutative, then the structure is called a \emph{commutative ring}. If \(*\) has a multiplicative identity, then it is called a ring \emph{with \(1\)} (or a \emph{unital} ring). In general, elements of a ring need not have multiplicative inverses, and this is consistent with the definition.
+	
+	\subsubsection{Fields}
+	A \textbf{field} \((R,+,*)\) is a \emph{ring} satisfying the additional requirement that \(\bigl(R \setminus \{0\}, *\bigr)\) is an abelian group. Equivalently, every nonzero element of \(R\) has a multiplicative inverse, and multiplication is commutative. In short, a field is a \emph{commutative division ring}. It is also common to denote a field by \(\mathbb{F}\).
+	
+	For example, \((\mathbb{Z}_4, +, \cdot)\) (with operations taken modulo \(4\)) is not a field because the element \(2\) has no multiplicative inverse modulo \(4\). In contrast, \((\mathbb{Z}_5, +, \cdot)\) (modulo \(5\)) is a field because every element except \(0\) has a multiplicative inverse (see the tables).
+	
+	% --- Tables for Z_4 ---
+	\begin{center}
+		\textbf{Addition and multiplication in \(\mathbb{Z}_4\)}\\[4pt]
+		
+		\[
+		\begin{array}{c|cccc}
+			+ & 0 & 1 & 2 & 3\\ \hline
+			0 & 0 & 1 & 2 & 3\\
+			1 & 1 & 2 & 3 & 0\\
+			2 & 2 & 3 & 0 & 1\\
+			3 & 3 & 0 & 1 & 2
+		\end{array}
+		\qquad
+		\begin{array}{c|cccc}
+			\cdot & 0 & 1 & 2 & 3\\ \hline
+			0 & 0 & 0 & 0 & 0\\
+			1 & 0 & 1 & 2 & 3\\
+			2 & 0 & 2 & 0 & 2\\
+			3 & 0 & 3 & 2 & 1
+		\end{array}
+		\]
+	\end{center}
+	
+	% --- Tables for Z_5 ---
+	\begin{center}
+		\textbf{Addition and multiplication in \(\mathbb{Z}_5\)}\\[4pt]
+		
+		\[
+		\begin{array}{c|ccccc}
+			+ & 0 & 1 & 2 & 3 & 4\\ \hline
+			0 & 0 & 1 & 2 & 3 & 4\\
+			1 & 1 & 2 & 3 & 4 & 0\\
+			2 & 2 & 3 & 4 & 0 & 1\\
+			3 & 3 & 4 & 0 & 1 & 2\\
+			4 & 4 & 0 & 1 & 2 & 3
+		\end{array}
+		\qquad
+		\begin{array}{c|ccccc}
+			\cdot & 0 & 1 & 2 & 3 & 4\\ \hline
+			0 & 0 & 0 & 0 & 0 & 0\\
+			1 & 0 & 1 & 2 & 3 & 4\\
+			2 & 0 & 2 & 4 & 1 & 3\\
+			3 & 0 & 3 & 1 & 4 & 2\\
+			4 & 0 & 4 & 3 & 2 & 1
+		\end{array}
+		\]
+	\end{center}
+	
+	\paragraph{Finite (Galois) field.}
+	By the axioms above, the set of real numbers \(\mathbb{R}\) (and likewise the complex numbers \(\mathbb{C}\)), together with the usual addition and multiplication, forms a field. However, in network security we are often interested in \emph{finite} fields---for instance, \((\mathbb{Z}_5,+,\cdot)\) with arithmetic taken modulo \(5\), which is \(\mathsf{GF}(5)\), where \(\mathsf{GF}\) denotes \emph{Galois field}.
+	
+	More generally, for a prime \(p\) and a positive integer \(n\), \(\mathsf{GF}(p^n)\) denotes a finite field with \(p^n\) elements. Note that \(\mathsf{GF}(p)\cong (\mathbb{Z}_p,+,\cdot)\) (modulo \(p\)), whereas for \(n>1\), \(\mathsf{GF}(p^n)\ncong (\mathbb{Z}_{p^n},+,\cdot)\) (modulo \(p^n\)). So, how can one construct a Galois field when \(n>1\)? One may do so in the following way:
+	\begin{enumerate}
+		\item Choose an \textbf{irreducible polynomial} \(P(x)\in \mathbb{Z}_p[x]\) of degree \(n\).
+		\item \(\mathsf{GF}(p^n) \cong \mathbb{Z}_p[x]/P.\)
+	\end{enumerate}
+	Operationally, this means we do polynomial arithmetic over \(\mathbb{Z}_p\) and reduce modulo \(P(x)\); in particular, every element can be represented by a polynomial of degree \(<n\) whose coefficients are in \(\mathbb{Z}_p\). Next, we will look at an example in which the technique used can be applied to the construction of any \(\mathsf{GF}(2^n)\) (i.e., \emph{binary} finite fields).
+	
+	\medskip
+	\noindent\textbf{Example: \(\mathsf{GF}(4)\).}
+	To construct \(\mathsf{GF}(4)\), we take \(p=2\) and \(n=2\), and choose the irreducible polynomial
+	\[
+	P(x)=x^2+x+1 \in \mathbb{Z}_2[x].
+	\]
+	Then
+	\[
+	\mathsf{GF}(4)\cong \mathbb{Z}_2[x]/(x^2+x+1),
+	\qquad
+	\mathsf{GF}(4)=\{0,\;1,\;x,\;x+1\}.
+	\]
+	In this setting, we may use the reduction rule
+	\[
+	x^2 \equiv x+1 \pmod{x^2+x+1},
+	\]
+	because \(x^2+x+1 \equiv 0 \pmod{x^2+x+1}\)---note that addition \((+)\) is in modulo \(2\).
+	\medskip
+	\noindent\textbf{Polynomial reduction example.}
+	Reduce \(x^5+x^3+1\) modulo \(x^2+x+1\) over \(\mathbb{Z}_2\):
+	\begin{align*}
+		x^5+x^3+1
+		&= (x^2+x+1)\,x^3 + {\color{red}(x^4+1)}\\
+		&= (x^2+x+1)\,x^3 + (x^2+x+1)\,x^2 + {\color{red}(x^3+x^2+1)}\\
+		&= (x^2+x+1)\,x^3 + (x^2+x+1)\,x^2 + (x^2+x+1)\,x + {\color{blue}(x+1)}.
+	\end{align*}
+	
+	Notice that At each iteration, we eliminate the current highest-degree term by subtracting a suitable multiple of \(x^2+x+1\).
+	Concretely, if the current polynomial has leading term \(x^d\) with \(d\ge 2\), we multiply the modulus \(x^2+x+1\) by \(x^{d-2}\), which produces a leading term \(x^d\); subtracting (equivalently, adding in \(\mathbb{Z}_2[X]\)) cancels that term and strictly lowers the degree.
+	Repeating this step until the degree is \(<2\) yields the remainder, which is unique and is the desired reduction modulo \(x^2+x+1\). Hence,
+	\[
+	x^5+x^3+1 \equiv x+1 \pmod{x^2+x+1}.
+	\]
+	
+	\medskip
+	\noindent\textbf{Tables for \(\mathsf{GF}(4)\).}
+	Using the element order \(\{0,1,x,x+1\}\), where addition is coefficient-wise modulo \(2\) and multiplication is reduced modulo \(x^2+x+1\), we obtain:
+	\[
+	\begin{array}{c|cccc}
+		+ & 0 & 1 & x & x+1\\ \hline
+		0 & 0 & 1 & x & x+1\\
+		1 & 1 & 0 & x+1 & x\\
+		x & x & x+1 & 0 & 1\\
+		x+1 & x+1 & x & 1 & 0
+	\end{array}
+	\qquad
+	\begin{array}{c|cccc}
+		\cdot & 0 & 1 & x & x+1\\ \hline
+		0 & 0 & 0 & 0 & 0\\
+		1 & 0 & 1 & x & x+1\\
+		x & 0 & x & x+1 & 1\\
+		x+1 & 0 & x+1 & 1 & x
+	\end{array}
+	\]
+	
+	\paragraph{Elliptic curve group.}
+	There are two groups that frequently arise in network security:
+	\begin{enumerate}
+		\item the multiplicative group \(\mathbb{Z}_p^{*}\) (i.e., the nonzero residues modulo a prime \(p\), under multiplication), and
+		\item the additive group of points on an elliptic curve, denoted \((\mathsf{E}(\mathbb{F}), +)\).
+	\end{enumerate}
+	The set \(\mathsf{E}(\mathbb{F})\) consists of all points \((x,y)\in \mathbb{F}^2\) satisfying a (Weierstrass) elliptic-curve equation, together with a special \emph{point at infinity} \(O\) (which serves as the \emph{additive identity}). In full generality, one may write
+	\[
+	y^2 + a_1xy + a_3y \;=\; x^3 + a_2x^2 + a_4x + a_6,
+	\qquad a_i \in \mathbb{F},
+	\]
+	with parameters chosen so that the curve is \emph{non-singular} (i.e., it has no cusp or self-intersection). The precise ``simplest'' form of the equation, as well as the cleanest addition formulas, depend on the \emph{characteristic} of the field \(\mathbb{F}\), denoted \(\mathsf{char}(\mathbb{F})\). Recall that \(\mathsf{char}(\mathbb{F})=m\) means the smallest positive integer such that for all \(a\in \mathbb{F}\),
+	\[
+	\underbrace{a+\cdots+a}_{m\text{ times}}=0,
+	\]
+	and if no such \(m\) exists, then \(\mathsf{char}(\mathbb{F})=0\). For example, \(\mathsf{char}(\mathbb{R})=0\) whereas \(\mathsf{char}(\mathsf{GF}(2^n))=2\).
+	
+	\medskip
+	\noindent\textbf{Case 1: \(\mathsf{char}(\mathbb{F})\neq 2,3\).}
+	In this case, every elliptic curve can be written (after a change of variables) in the short Weierstrass form
+	\[
+	\mathsf{E}:\quad y^2 = x^3 + ax + b,
+	\]
+	with the non-singularity condition
+	\[
+	4a^3 + 27b^2 \neq 0.
+	\]
+	The group law is defined geometrically by the chord-and-tangent rule; algebraically, it can be computed as follows.
+	Let \(P=(x_1,y_1)\) and \(Q=(x_2,y_2)\) be points on \(\mathsf{E}\).
+	
+	\begin{itemize}
+		\item \textbf{Identity.} \(P+O=O+P=P\).
+		\item \textbf{Inverse.} \(-P=(x_1,-y_1)\), and \(P+(-P)=O\).
+		\item \textbf{Addition (\(P\neq Q\)).} If \(x_1\neq x_2\), define
+		\[
+		\lambda = \frac{y_2-y_1}{x_2-x_1},\qquad
+		x_3 = \lambda^2 - x_1 - x_2,\qquad
+		y_3 = \lambda(x_1-x_3)-y_1.
+		\]
+		Then \(P+Q=(x_3,y_3)\). If \(x_1=x_2\) and \(y_1=-y_2\), then \(P+Q=O\).
+		\item \textbf{Doubling (\(P=Q\)).} If \(y_1\neq 0\), define
+		\[
+		\lambda = \frac{3x_1^2+a}{2y_1},\qquad
+		x_3 = \lambda^2 - 2x_1,\qquad
+		y_3 = \lambda(x_1-x_3)-y_1,
+		\]
+		and set \(2P=(x_3,y_3)\). If \(y_1=0\), then \(2P=O\).
+	\end{itemize}
+	
+	\medskip
+	\noindent\textbf{Case 2: \(\mathsf{char}(\mathbb{F})=2\).}
+	Over fields of characteristic \(2\), elliptic curves used in practice are typically presented in one of two standard forms. The distinction below is often summarized via the \(j\)-invariant: in characteristic \(2\), the case \(j=0\) corresponds to the \emph{supersingular} form (no \(xy\) term), while \(j\neq 0\) corresponds to the \emph{ordinary} form (with an \(xy\) term).
+	
+	\smallskip
+	\noindent\textbf{(a) Ordinary case (\(j\neq 0\)).}
+	A common model is
+	\[
+	\mathsf{E}:\quad y^2 + xy = x^3 + ax^2 + b,
+	\qquad a,b\in \mathbb{F},\ \ b\neq 0.
+	\]
+	For \(P=(x_1,y_1)\in \mathsf{E}(\mathbb{F})\):
+	\begin{itemize}
+		\item \textbf{Identity.} \(P+O=P\).
+		\item \textbf{Inverse.} \(-P=(x_1,\,y_1+x_1)\).
+		\item \textbf{Addition (\(P\neq Q\)).} For \(Q=(x_2,y_2)\) with \(x_1\neq x_2\), define
+		\[
+		\lambda = \frac{y_1+y_2}{x_1+x_2},\qquad
+		x_3 = \lambda^2+\lambda+x_1+x_2+a,\qquad
+		y_3 = \lambda(x_1+x_3)+x_3+y_1.
+		\]
+		Then \(P+Q=(x_3,y_3)\). If \(x_1=x_2\) and \(y_1+y_2=x_1\), then \(P+Q=O\).
+		\item \textbf{Doubling (\(P=Q\)).} If \(x_1\neq 0\), define
+		\[
+		\lambda = x_1 + \frac{y_1}{x_1},\qquad
+		x_3 = \lambda^2+\lambda+a,\qquad
+		y_3 = x_1^2 + (\lambda+1)x_3,
+		\]
+		and set \(2P=(x_3,y_3)\). If \(x_1=0\), then \(2P=O\).
+	\end{itemize}
+	
+	\smallskip
+	\noindent\textbf{(b) Supersingular case (\(j=0\)).}
+	A common model is
+	\[
+	\mathsf{E}:\quad y^2 + ay = x^3 + bx + c,
+	\qquad a,b,c\in \mathbb{F},\ \ a\neq 0.
+	\]
+	For \(P=(x_1,y_1)\in \mathsf{E}(\mathbb{F})\):
+	\begin{itemize}
+		\item \textbf{Identity.} \(P+O=P\).
+		\item \textbf{Inverse.} \(-P=(x_1,\,y_1+a)\).
+		\item \textbf{Addition (\(P\neq Q\)).} For \(Q=(x_2,y_2)\) with \(x_1\neq x_2\), define
+		\[
+		\lambda = \frac{y_1+y_2}{x_1+x_2},\qquad
+		x_3 = \lambda^2 + x_1 + x_2,\qquad
+		y_3 = \lambda(x_1+x_3) + y_1 + a.
+		\]
+		Then \(P+Q=(x_3,y_3)\). If \(x_1=x_2\) and \(y_1+y_2=a\), then \(P+Q=O\).
+		\item \textbf{Doubling (\(P=Q\)).} Define
+		\[
+		\lambda = \frac{x_1^2 + b}{a},\qquad
+		x_3 = \lambda^2,\qquad
+		y_3 = \lambda(x_1+x_3) + y_1 + a,
+		\]
+		and set \(2P=(x_3,y_3)\).
+	\end{itemize}
+	
+	\subsection{Number Theory}
+	First, we look at some elementary number-theoretic concepts which can be extended to finite fields \(\mathsf{GF}(p^n)\), where \(p\) is prime and \(n\) is an integer larger than one.
+	
+	\begin{theorem}[Bézout's Identity]
+		Let \(a,b\in \mathbb{Z}\) be integers, not both zero, and let \(d=\gcd(a,b)\).
+		Then there exist integers \(x,y\in \mathbb{Z}\) such that
+		\[
+		ax+by=d.
+		\]
+		Moreover, \(d\) is the \emph{smallest positive} integer that can be written in the form \(ax+by\).
+		\label{thm:bezout}
+	\end{theorem}
+	
+	\begin{proof}
+		Without loss of generality, assume \((a,b)\neq (0,0)\). Consider the set
+		\[
+		S=\{\,ax+by \;:\; x,y\in \mathbb{Z},\ ax+by>0\,\}.
+		\]
+		This set is nonempty: if \(a\neq 0\), choose \(x=\operatorname{sgn}(a)\) and \(y=0\), giving \(|a|\in S\); similarly if \(a=0\) then \(b\neq 0\) and \(|b|\in S\).
+		
+		By the Well-Ordering Principle, \(S\) has a smallest element; call it \(d\). By definition, there exist integers \(x_0,y_0\) such that
+		\[
+		d=ax_0+by_0.
+		\]
+		
+		We first show that \(d\) divides both \(a\) and \(b\). Apply the division algorithm to \(a\) with divisor \(d\): there exist integers \(q\) and \(r\) such that
+		\[
+		a=qd+r,\qquad 0\le r<d.
+		\]
+		Substitute \(d=ax_0+by_0\) into the expression for \(r\):
+		\[
+		r=a-qd
+		=a-q(ax_0+by_0)
+		=a(1-qx_0)+b(-qy_0).
+		\]
+		Hence \(r\) is an integer linear combination of \(a\) and \(b\). Also, \(r\ge 0\) by the division algorithm. If \(r>0\), then \(r\in S\), contradicting the minimality of \(d\). Therefore \(r=0\), so \(d\mid a\). The same argument applied to \(b\) shows \(d\mid b\).
+		
+		Next, we show that \(d\) is the greatest common divisor. Let \(c\) be any common divisor of \(a\) and \(b\). Then \(c\mid ax\) and \(c\mid by\) for all integers \(x,y\), and thus \(c\mid (ax+by)\). In particular, \(c\mid d=ax_0+by_0\). Therefore every common divisor of \(a\) and \(b\) divides \(d\), and since \(d\) itself is a common divisor, we conclude \(d=\gcd(a,b)\).
+		
+		Finally, since \(d\in S\) is the smallest positive element of the form \(ax+by\), it is indeed the smallest positive integer representable as an integer linear combination of \(a\) and \(b\).
+	\end{proof}
+	
+	\begin{theorem}[Euclid's Lemma]
+		For two integers \(k\) and \(l\), if their product \(k\cdot l\) is divisible by a prime \(p\), then either \(p\mid k\) or \(p\mid l\) (or both).
+		\label{thm:euclid_lemma}
+	\end{theorem}
+	
+	\begin{proof}
+		In fact, we prove a slightly stronger statement (which will immediately imply the theorem). Also, without loss of generality, we may assume all numbers involved are positive: divisibility is invariant under changing signs.
+		
+		\medskip
+		\noindent\textbf{Stronger claim.} If \(n\mid kl\) and \(\gcd(n,k)=1\), then \(n\mid l\).
+		
+		\medskip
+		\noindent Suppose \(n\mid kl\) and \(\gcd(n,k)=1\). Since \(\gcd(n,k)=1\), by Bézout's identity there exist integers \(u\) and \(v\) such that
+		\[
+		un + vk = 1.
+		\]
+		Multiplying both sides by \(l\) gives
+		\[
+		u(nl) + v(kl) = l.
+		\]
+		Now, \(n\mid nl\) is immediate. Also, since \(n\mid kl\) by assumption, we have \(n\mid v(kl)\) as well. Therefore, \(n\) divides the sum \(u(nl) + v(kl)\), which equals \(l\). Hence \(n\mid l\), proving the stronger claim.
+		
+		\medskip
+		\noindent To obtain Euclid's Lemma, let \(n=p\) be a prime. If \(p\mid kl\) and \(p\nmid k\), then \(\gcd(p,k)=1\) (a prime has no common divisor with \(k\) other than \(1\) unless it divides \(k\)). By the stronger claim, \(p\mid l\). Equivalently, whenever \(p\mid kl\), we must have \(p\mid k\) or \(p\mid l\).
+	\end{proof}
+	
+	\begin{theorem}[Prime Factorization Theorem (Fundamental Theorem of Arithmetic)]
+		Every integer \(n>1\) can be written as a product of prime powers
+		\[
+		n \;=\; p_{1}^{\alpha_1}\, p_{2}^{\alpha_2}\cdots p_{k}^{\alpha_k},
+		\]
+		where \(p_1<p_2<\dots<p_k\) are primes and \(\alpha_i\) are positive integers. Moreover, this representation is unique up to the ordering of the prime factors.
+		
+		For example, \(2=2^1\), \(4459=7^3\cdot 13^1\), and \(30=2^1\cdot 3^1\cdot 5^1\).
+		\label{thm:fundamental_arithmetic}
+	\end{theorem}
+	\begin{proof}
+		We prove both \emph{existence} and \emph{uniqueness}.
+		
+		\medskip
+		\noindent\textbf{Existence.}
+		We use strong induction on \(n\ge 2\).
+		For the base case \(n=2\), the claim holds since \(2\) is prime.
+		
+		Now assume as the induction hypothesis that every integer \(m\) with \(2\le m < n\) can be written as a product of primes. We consider two cases:
+		\begin{enumerate}
+			\item If \(n\) is prime, then \(n\) is already a product of primes (namely itself), so we are done.
+			\item If \(n\) is composite, then \(n=ab\) for some integers \(a,b\) with \(1<a<n\) and \(1<b<n\). By the induction hypothesis, both \(a\) and \(b\) can be written as products of primes. Multiplying those two prime factorizations together expresses \(n\) as a product of primes as well.
+		\end{enumerate}
+		This completes the induction and proves existence.
+		
+		\medskip
+		\noindent\textbf{Uniqueness.}
+		Suppose \(n>1\) can be written as a product of primes in two ways (allowing repeated primes, so that exponents are implicit):
+		\[
+		n \;=\; p_1p_2\cdots p_k \;=\; q_1q_2\cdots q_\ell,
+		\]
+		where each \(p_i\) and each \(q_j\) is prime.
+		
+		We show that the two lists of primes must agree up to reordering. Since \(p_1 \mid n\) and \(n=q_1q_2\cdots q_\ell\), we have \(p_1 \mid (q_1q_2\cdots q_\ell)\). By Euclid's Lemma, \(p_1\) divides \(q_j\) for some \(j\). Because \(q_j\) is prime, this forces \(p_1=q_j\).
+		
+		Cancel this common prime factor from both sides. Concretely, after reordering the \(q\)'s if necessary, we may assume \(p_1=q_1\), and then divide both sides by \(p_1\) to obtain
+		\[
+		\frac{n}{p_1} \;=\; p_2\cdots p_k \;=\; q_2\cdots q_\ell.
+		\]
+		Now repeat the same argument with \(p_2\), then \(p_3\), and so on. Each step cancels one prime factor from the left and one prime factor from the right. This process cannot terminate early on one side: if, say, \(k<\ell\), then after canceling \(k\) primes we would obtain
+		\[
+		1 = q_{k+1}\cdots q_\ell,
+		\]
+		which is impossible because the right-hand side is a product of primes and hence at least \(2\). Therefore \(k=\ell\), and after reordering, we must have \(p_i=q_i\) for all \(i\).
+		
+		Finally, grouping equal primes together yields the prime-power form
+		\(
+		n = p_1^{\alpha_1}\cdots p_k^{\alpha_k}
+		\),
+		and the argument above shows that both the primes and their exponents are uniquely determined.
+	\end{proof}
+	
+	Now, we look at an important algorithm in number theory that efficiently computes the greatest common divisor of a pair of integers.
+	
+	\begin{algorithm}[H]
+		\caption{\textsc{Euclid's Algorithm}}
+		\label{alg:euclid_algo}
+		\textbf{Input:} Non-negative integers \(a\) and \(b\). Without loss of generality, assume \(a \ge b\).\\
+		\textbf{Output:} \(\gcd(a,b)\).
+		\begin{algorithmic}[1]
+			\STATE Let \(r_0 \gets a\) and \(r_1 \gets b\).
+			\STATE For \(i=1,2,\dots\), apply the division algorithm (i.e., \(x = yq + r \quad (0 \le r < y)\)) to write
+			\[
+			r_{i-1} = q_i r_i + r_{i+1} \qquad \text{with } 0 \le r_{i+1} < r_i,
+			\]
+			and continue until \(r_{i+1}=0\).
+			\STATE Output the last nonzero remainder \(r_i\).
+		\end{algorithmic}
+	\end{algorithm}
+	\begin{analysis}
+		We first show that the algorithm terminates. At each step we have
+		\[
+		0 \le r_{i+1} < r_i,
+		\]
+		so the sequence \(r_1, r_2, \dots\) is a strictly decreasing sequence of nonnegative integers. Such a sequence cannot decrease indefinitely, hence there exists some step \(T\) such that \(r_{T+1}=0\). In particular, the algorithm must terminate.
+		
+		\medskip
+		\noindent\textbf{Correctness.}
+		Assume the algorithm terminates at step \(T\), so \(r_{T+1}=0\) and \(r_T\neq 0\). We claim that the algorithm outputs \(\gcd(a,b)\), i.e., \(r_T=\gcd(a,b)\).
+		
+		The key fact is the following lemma.
+		
+		\begin{lemma}
+			If \(j=kq+r\) for integers \(j,k,q,r\), then \(\gcd(j,k)=\gcd(k,r)\).
+			\label{thm:gcd_equiv}
+		\end{lemma}
+		
+		\begin{proof}
+			Let \(m=\gcd(j,k)\) and \(n=\gcd(k,r)\).
+			
+			First, since \(m\mid j\) and \(m\mid k\), we have \(m\mid (j-kq =r)\). Thus \(m\) divides both \(k\) and \(r\), so \(m\) is a common divisor of \(k\) and \(r\). Hence \(m\le n\).
+			
+			Conversely, since \(n\mid k\) and \(n\mid r\), we have \(n\mid (kq+r =j)\). Thus \(n\) divides both \(j\) and \(k\), so \(n\) is a common divisor of \(j\) and \(k\). Hence \(n\le m\).
+			
+			Therefore \(m=n\), i.e., \(\gcd(j,k)=\gcd(k,r)\).
+		\end{proof}
+		
+		We now apply the lemma to Euclid's Algorithm. By construction, at each iteration we have
+		\[
+		r_{i-1} = q_i r_i + r_{i+1}.
+		\]
+		By the lemma (with \(j=r_{i-1}\), \(k=r_i\), and \(r=r_{i+1}\)),
+		\[
+		\gcd(r_{i-1},r_i)=\gcd(r_i,r_{i+1}) \qquad \text{for all } i\ge 1.
+		\]
+		Chaining these equalities yields
+		\[
+		\gcd(r_0,r_1)=\gcd(r_1,r_2)=\cdots=\gcd(r_T,r_{T+1}).
+		\]
+		Since \(r_{T+1}=0\), we have \(\gcd(r_T,0)=r_T\). Hence
+		\[
+		\gcd(a,b)=\gcd(r_0,r_1)=\gcd(r_T,0)=r_T.
+		\]
+		Therefore the last nonzero remainder \(r_T\) output by the algorithm is exactly \(\gcd(a,b)\), proving correctness.
+	\end{analysis}
+	
+	To give an example, let us find the \(\gcd(331, 277)\) using Algorithm~\ref{alg:euclid_algo}.
+	\begin{align*}
+		{\color{red}331} &= {\color{red}277} \cdot 1 + {\color{blue}54}\\
+		{\color{red}277} &= {\color{red}54} \cdot 5 + {\color{blue}7}\\
+		{\color{red}54} &= {\color{red}7} \cdot 7 + {\color{blue}5}\\
+		{\color{red}7} &= {\color{red}5} \cdot 1 + {\color{blue}2}\\
+		{\color{red}5} &= {\color{red}2} \cdot 2 + {\color{blue}1}\\
+		{\color{red}2} &= {\color{red}1} \cdot 2 + {\color{blue}0}.
+	\end{align*}
+	
+	Thus, \(\gcd(331, 277) = 1\). 
+	
+	Algorithm~\ref{alg:euclid_algo} can be applied in \(\mathbb{Z}_2[x]\), which is usually the main case of interest in network security.
+	
+	\textbf{Example.} Find \(\gcd\bigl(x^8+x^4+x^3+x+1,\; x^7+x^4+x^2+1\bigr)\). Applying Euclid's algorithm in \(\mathbb{Z}_2[x]\), we obtain
+	\begin{align*}
+		{\color{red}x^8+x^4+x^3+x+1}
+		&= {\color{red}(x^7+x^4+x^2+1)}\cdot x + {\color{blue}(x^5+x^4+1)}.
+	\end{align*}
+	Now, we divide \(x^7+x^4+x^2+1\) by \(x^5+x^4+1\). We carry out the long division term-by-term while ensuring the remainder degree strictly decreases each step:
+	\begin{align*}
+		{\color{red}x^7+x^4+x^2+1}
+		&= {\color{red}(x^5+x^4+1)}\cdot x^2 + (x^6+x^4+1)\\
+		&= {\color{red}(x^5+x^4+1)}\cdot x^2 + {\color{red}(x^5+x^4+1)}\cdot x + (x^5+x^4+x+1)\\
+		&= {\color{red}(x^5+x^4+1)}\cdot x^2 + {\color{red}(x^5+x^4+1)}\cdot x + {\color{red}(x^5+x^4+1)}\cdot 1 + x\\
+		&= {\color{red}(x^5+x^4+1)}\cdot (x^2+x+1) + {\color{blue}x}.
+	\end{align*}
+	
+	Next, we divide \((x^5+x^4+1)\) by \(x\):
+	\begin{align*}
+		{\color{red}x^5+x^4+1}
+		&= {\color{red}x}\cdot x^4 + (x^4+1)\\
+		&= {\color{red}x}\cdot x^4 + \bigl({\color{red}x}\cdot x^3 + 1\bigr)\\
+		&= {\color{red}x}\cdot (x^4+x^3) + {\color{blue}1}.
+	\end{align*}
+	Finally,
+	\[
+	{\color{red}x} = {\color{red}1}\cdot x + {\color{blue}0}.
+	\]
+	Hence, the last non-zero remainder is \(1\), and therefore
+	\[
+	\gcd\bigl(x^8+x^4+x^3+x+1,\; x^7+x^4+x^2+1\bigr)=1.
+	\]
+	
+	Euclid's algorithm can be \emph{extended} to compute the coefficients of Bézout's identity (i.e., directly finding the \(x\) and \(y\) in the equation \(a \cdot x + b \cdot y = \gcd(a, b)\)).
+	
+	\begin{algorithm}[H]
+		\caption{\textsc{Extended Euclidean Algorithm}}
+		\label{alg:ext_euclid_algo}
+		\textbf{Input:} Non-negative integers \(a\) and \(b\). Without loss of generality, assume \(a \ge b\).\\
+		\textbf{Output:} Integers \(s\) and \(t\) such that \(as+bt=\gcd(a,b)\).
+		\begin{algorithmic}[1]
+			\STATE Let \(r_0 \gets a\) and \(r_1 \gets b\).
+			\STATE Let \(s_0 \gets 1\) and \(s_1 \gets 0\).
+			\STATE Let \(t_0 \gets 0\) and \(t_1 \gets 1\).
+			\STATE For \(i=1,2,3,\dots\), apply the division algorithm to write
+			\[
+			r_{i-1} = q_i r_i + r_{i+1} \qquad \text{with } 0 \le r_{i+1} < r_i,
+			\]
+			and update
+			\[
+			s_{i+1} = s_{i-1} - q_i s_i,
+			\qquad
+			t_{i+1} = t_{i-1} - q_i t_i,
+			\]
+			until \(r_{i+1}=0\).
+			\STATE Output \(s_i\) and \(t_i\), where \(i\) is the index of the last nonzero remainder \(r_i\).
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{analysis}
+		\textbf{Correctness.}
+		From Algorithm~\ref{alg:euclid_algo}, we already know that if the last nonzero remainder is \(r_T\), then
+		\[
+		r_T=\gcd(a,b).
+		\]
+		It remains to show that the algorithm outputs coefficients \(s_T\) and \(t_T\) satisfying Bézout's identity
+		\[
+		as_T+bt_T=r_T.
+		\]
+		
+		\medskip
+		\noindent\textbf{Claim.} For every index \(i\ge 0\), the values \(r_i, s_i, t_i\) maintained by the algorithm satisfy
+		\[
+		r_i = as_i + bt_i.
+		\]
+		In particular, at termination this gives \(r_T = as_T + bt_T\), so the output \((s_T,t_T)\) is correct.
+		
+		\medskip
+		\noindent\emph{Proof of the claim (by induction on \(i\)).}
+		For the base cases,
+		\[
+		r_0=a = a\cdot 1 + b\cdot 0 = as_0 + bt_0,
+		\qquad
+		r_1=b = a\cdot 0 + b\cdot 1 = as_1 + bt_1.
+		\]
+		Assume the identity holds for indices \(i-1\) and \(i\), i.e.,
+		\[
+		r_{i-1}=as_{i-1}+bt_{i-1}
+		\qquad\text{and}\qquad
+		r_i=as_i+bt_i.
+		\]
+		At step \(i\), the algorithm computes
+		\[
+		r_{i+1}=r_{i-1}-q_i r_i,\qquad
+		s_{i+1}=s_{i-1}-q_i s_i,\qquad
+		t_{i+1}=t_{i-1}-q_i t_i.
+		\]
+		Substituting the induction hypothesis into the recurrence for \(r_{i+1}\) gives
+		\begin{align*}
+			r_{i+1}
+			&= (as_{i-1}+bt_{i-1}) - q_i(as_i+bt_i)\\
+			&= a(s_{i-1}-q_i s_i) + b(t_{i-1}-q_i t_i)\\
+			&= as_{i+1} + bt_{i+1}.
+		\end{align*}
+		Thus the identity holds for \(i+1\), completing the induction.
+		
+		\medskip
+		\noindent Therefore, when the algorithm terminates with \(r_{T+1}=0\) and \(r_T\neq 0\), we have
+		\[
+		\gcd(a,b)=r_T = as_T + bt_T,
+		\]
+		so the returned \(s_T\) and \(t_T\) are indeed valid Bézout coefficients.
+	\end{analysis}
+	
+	We particularly use the extended Euclidean algorithm to find multiplicative inverses of elements in a finite field.
+	
+	\textbf{Example.} In \(\mathbb{Z}_{1021}\) (which is \(\cong \mathsf{GF}(1021)\) since \(1021\) is prime), compute the multiplicative inverse of the element \(453\). Applying Algorithm~\ref{alg:ext_euclid_algo} with \(a=1021\) and \(b=453\), we obtain the following sequence:
+	
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{c|c|c|c|c}
+			\textbf{index \(i\)} & {\color{red}\textbf{\(q_{i-1}\)}} & \textbf{\(r_i\)} & \textbf{\(s_i\)} & \textbf{\(t_i\)}\\ \hline
+			0 & -- & 1021 & 1 & 0\\
+			1 & -- & 453  & 0 & 1\\
+			2 & 2  & 115  & 1 & -2\\
+			3 & 3  & 108  & -3 & 7\\
+			4 & 1  & 7    & 4 & -9\\
+			5 & 15 & 3    & -63 & 142\\
+			6 & 2  & {\color{red}1}    & {\color{red}130} & {\color{red}-293}\\
+			7 & 3  & {\color{blue}0}    & -- & --\\
+		\end{tabular}
+	\end{table}
+	
+	Since the last non-zero remainder is \(r_6=1\), we have \(\gcd(1021,453)=1\). Moreover, the row \(i=6\) gives the Bézout relation
+	\[
+	1021\cdot {\color{red}130} + 453\cdot{\color{red}(-293)} = {\color{red}1}.
+	\]
+	Reducing modulo \(1021\), this becomes
+	\[
+	453\cdot(-293) \equiv 1 \pmod{1021},
+	\]
+	so the multiplicative inverse of \(453\) in \(\mathbb{Z}_{1021}\) is
+	\[
+	453^{-1} \equiv -293 \equiv 1021-293 = 728 \pmod{1021}.
+	\]
+	
+	\noindent Here is another example involving \(\mathsf{GF}(256)\).
+	
+	\textbf{Example.} Consider the field \(\mathsf{GF}(2^8)\) with irreducible polynomial
+	\[
+	P(x)=x^8+x^4+x^3+x+1.
+	\]
+	Find the multiplicative inverse of
+	\[
+	Q(x)=x^7+x^4+x^2+1
+	\]
+	in \(\mathsf{GF}(256)\) (i.e., modulo \(P(x)\)). We apply the extended Euclidean algorithm in \(\mathbb{Z}_2[x]\). Since coefficients are taken modulo \(2\), subtraction and addition coincide, so the update rules become
+	\begin{align*}
+		s_{i+1} &= s_{i-1} \oplus q_i s_i,\\
+		t_{i+1} &= t_{i-1} \oplus q_i t_i.
+	\end{align*}
+	
+	It follows that:
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{c|c|c|c|c}
+			\textbf{index \(i\)} & {\color{red}\textbf{\(q_{i-1}\)}} & \textbf{\(r_i\)} & \textbf{\(s_i\)} & \textbf{\(t_i\)}\\ \hline
+			0 & -- & \(P(x)\) & \(1\) & \(0\)\\
+			1 & -- & \(Q(x)\) & \(0\) & \(1\)\\
+			2 & \(x\) & \(x^5+x^4+1\) & \(1\) & \(x\)\\
+			3 & \(x^2+x+1\) & \(x\) & \(x^2+x+1\) & \(x^3+x^2+x+1\)\\
+			4 & \(x^4+x^3\) & {\color{red}\(1\)} & {\color{red}\(x^6+x^3+1\)} & {\color{red}\(x^7+x^3+x\)}\\
+			5 & \(x\) & {\color{blue}\(0\)} & -- & --\\
+		\end{tabular}
+	\end{table}
+	
+	Since the last nonzero remainder is \(1\), we have \(\gcd(P(x),Q(x))=1\). From the row where \(r_i=1\) (i.e., \(i=4\)), we get
+	\[
+	P(x)\cdot {\color{red}(x^6+x^3+1)}\;\oplus\; Q(x)\cdot {\color{red}(x^7+x^3+x)} \;=\; {\color{red}1}.
+	\]
+	Reducing modulo \(P(x)\) eliminates the first term, and we obtain
+	\[
+	Q(x)\cdot (x^7+x^3+x)\equiv 1 \pmod{P(x)}.
+	\]
+	Hence, the multiplicative inverse of \(Q(x)\) in \(\mathsf{GF}(256)\) is
+	\[
+	Q(x)^{-1} \equiv x^7+x^3+x \pmod{P(x)}.
+	\]
+	
+\end{document}
