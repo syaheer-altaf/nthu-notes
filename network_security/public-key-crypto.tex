@@ -35,6 +35,8 @@
 % Theorem environments
 \newtheorem{theorem}{Theorem}
 \newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{claim}{Claim}
 \newtheorem{definition}{Definition}
 \newenvironment{analysis}[1][Analysis]%
 {\begin{proof}[#1]}%
@@ -724,5 +726,274 @@
 	\[
 	Q(x)^{-1} \equiv x^7+x^3+x \pmod{P(x)}.
 	\]
+	
+	We study more results from number theory before applying them appropriately to public-key cryptography.
+	
+	\begin{theorem}[Chinese Remainder Theorem]
+		Let \(n_1,n_2,\dots,n_\ell\) be integers greater than \(1\), and let \(N=\prod_{i=1}^{\ell} n_i\). If the \(n_i\) are pairwise coprime (i.e., \(\gcd(n_i,n_j)=1\) for all \(i<j\)), then for any residues \(r_1,r_2,\dots,r_\ell\), the system of congruences
+		\begin{align*}
+			x &\equiv r_1 \pmod{n_1}\\
+			x &\equiv r_2 \pmod{n_2}\\
+			&\vdots\\
+			x &\equiv r_\ell \pmod{n_\ell}
+		\end{align*}
+		has a solution. Moreover, if \(x_1\) and \(x_2\) are two solutions, then \(x_1 \equiv x_2 \pmod{N}\) (equivalently, the solution is unique modulo \(N\)).
+		\label{thm:chinese_remainder}
+	\end{theorem}
+	
+	\begin{proof}
+		We prove existence constructively by writing down an explicit solution. For each \(i\), define
+		\[
+		N_i := \frac{N}{n_i} = \prod_{j\ne i} n_j.
+		\]
+		Since the moduli are pairwise coprime, we have \(\gcd(N_i,n_i)=1\). Hence, by Bézout's identity there exist integers \(u_i\) and \(v_i\) such that
+		\[
+		u_i N_i + v_i n_i = 1.
+		\]
+		Reducing both sides modulo \(n_i\) yields
+		\[
+		u_i N_i \equiv 1 \pmod{n_i}.
+		\]
+		(Concretely, \(u_i\) can be computed using Algorithm~\ref{alg:ext_euclid_algo} applied to \(N_i\) and \(n_i\).)
+		
+		Now define
+		\[
+		x := \sum_{i=1}^{\ell} r_i \, u_i \, N_i.
+		\]
+		We claim that this \(x\) satisfies all congruences. Fix an index \(k\in\{1,\dots,\ell\}\). Consider \(x \bmod n_k\). For any \(i\neq k\), the factor \(N_i\) contains \(n_k\), so \(N_i \equiv 0 \pmod{n_k}\). Therefore, modulo \(n_k\) all terms in the sum vanish except the \(i=k\) term:
+		\[
+		x \equiv r_k\, u_k\, N_k \pmod{n_k}.
+		\]
+		Using \(u_k N_k \equiv 1 \pmod{n_k}\), we obtain
+		\[
+		x \equiv r_k \pmod{n_k},
+		\]
+		as desired. This proves existence.
+		
+		For uniqueness modulo \(N\), suppose \(x_1\) and \(x_2\) are two solutions. Then for every \(i\),
+		\[
+		x_1 \equiv x_2 \pmod{n_i}
+		\quad\Longrightarrow\quad
+		n_i \mid (x_1-x_2).
+		\]
+		Since the \(n_i\) are pairwise coprime, their product \(N=\prod_i n_i\) also divides \(x_1-x_2\). Hence,
+		\[
+		x_1 \equiv x_2 \pmod{N},
+		\]
+		which proves the solution is unique modulo \(N\).
+	\end{proof}
+	
+	\textbf{Example.} Say we want to find \(x\) satisfying
+	\begin{align*}
+		x &\equiv 2 \pmod{3}\\
+		x &\equiv 1 \pmod{4}\\
+		x &\equiv 7 \pmod{11}.
+	\end{align*}
+	First, note that the moduli \(3,4,11\) are pairwise coprime. Moreover,
+	\[
+	N = 3\cdot 4\cdot 11 = 132.
+	\]
+	Following the constructive proof of Theorem~\ref{thm:chinese_remainder}, we define
+	\[
+	N_1=\frac{N}{3}=44,\qquad N_2=\frac{N}{4}=33,\qquad N_3=\frac{N}{11}=12.
+	\]
+	We then compute \(u_i\) such that \(u_iN_i \equiv 1 \pmod{n_i}\), i.e., \(u_iN_i+v_in_i=1\), via Algorithm~\ref{alg:ext_euclid_algo}:
+	\begin{align*}
+		u_1\cdot 44 + v_1\cdot 3 &= 1 \qquad &&\Rightarrow\ u_1=2,\\
+		u_2\cdot 33 + v_2\cdot 4 &= 1 \qquad &&\Rightarrow\ u_2=1,\\
+		u_3\cdot 12 + v_3\cdot 11 &= 1 \qquad &&\Rightarrow\ u_3=1.
+	\end{align*}
+	
+	\noindent The solution is then constructed as
+	\[
+	x \equiv r_1u_1N_1 + r_2u_2N_2 + r_3u_3N_3 \pmod{N}.
+	\]
+	Substituting \(r_1=2\), \(r_2=1\), \(r_3=7\) gives
+	\begin{align*}
+		x &\equiv 2\cdot 2\cdot 44 \;+\; 1\cdot 1\cdot 33 \;+\; 7\cdot 1\cdot 12 \pmod{132}\\
+		&= 176 + 33 + 84\\
+		&= 293\\
+		&\equiv 29 \pmod{132}.
+	\end{align*}
+	Therefore, the solutions are exactly \(x = 29 + 132k\) for arbitrary integers \(k\).
+	
+	\begin{lemma}
+		Let \(p\) and \(q\) be coprime. If \(x \equiv y \pmod p\) and \(x \equiv y \pmod q\), then \(x \equiv y \pmod{pq}\).
+		\label{lemma:crt_consequence}
+	\end{lemma}
+	\begin{proof}
+		Consider the system of congruences in the unknown \(z\):
+		\[
+		z \equiv y \pmod p,
+		\qquad
+		z \equiv y \pmod q.
+		\]
+		Clearly, \(z=y\) is a solution. Also, \(z=x\) is a solution by assumption.
+		
+		Since \(\gcd(p,q)=1\), the Chinese Remainder Theorem says that the solution to this system is \emph{unique modulo \(pq\)}. Therefore, any two solutions must be congruent modulo \(pq\). In particular,
+		\[
+		x \equiv y \pmod{pq},
+		\]
+		as required.
+	\end{proof}
+	
+	\begin{definition}[Euler Totient Function]
+		The Euler totient function \(\phi\) counts the positive integers less than \(n\) that are coprime to \(n\). In other words, for a given \(n\ge 1\),
+		\[
+		\phi(n) = \Bigl| \{\,x : 1 \le x < n,\ \gcd(x,n)=1\,\} \Bigr|.
+		\]
+		For example, \(\phi(5)=|\{1,2,3,4\}|=4\) and \(\phi(6)=|\{1,5\}|=2\).
+		\label{def:euler_totient_function}
+	\end{definition}
+	
+	\begin{claim}[Properties of \(\phi\)]
+		The Euler totient function satisfies the following properties.
+		\begin{itemize}
+			\item For any prime \(p\) and any integer \(\alpha \ge 1\), we have
+			\[
+			\phi(p^\alpha) = p^{\alpha-1}(p-1).
+			\]
+			\item For any integers \(m,n\) such that \(\gcd(m,n)=1\), we have
+			\[
+			\phi(mn)=\phi(m)\phi(n).
+			\]
+		\end{itemize}
+		Following these properties, we immediately obtain
+		\[
+		\phi(pq)=(p-1)(q-1)\quad \text{for primes } p,q.
+		\]
+		\label{claim:totient_prop}
+	\end{claim}
+	
+	\begin{proof}
+		\textbf{First property of \(\phi\).}
+		Let \(p\) be prime and \(\alpha\ge 1\). Consider the integers \(x\) with \(1\le x < p^\alpha\). Such an \(x\) is \emph{not} coprime to \(p^\alpha\) precisely when \(p\mid x\) (since the only prime divisor of \(p^\alpha\) is \(p\)). Hence, the integers \(x\) in \(\{1,2,\dots,p^\alpha-1\}\) that fail to be coprime to \(p^\alpha\) are exactly the multiples of \(p\):
+		\[
+		p,\ 2p,\ 3p,\ \dots,\ (p^{\alpha-1}-1)p.
+		\]
+		There are \(p^{\alpha-1}-1\) such multiples. Since there are \(p^\alpha-1\) total integers in \(\{1,\dots,p^\alpha-1\}\), it follows that
+		\[
+		\phi(p^\alpha)=(p^\alpha-1) - (p^{\alpha-1}-1) = p^\alpha - p^{\alpha-1} = p^{\alpha-1}(p-1).
+		\]
+		
+		\medskip
+		\noindent\textbf{Second property of \(\phi\).}
+		Assume \(\gcd(m,n)=1\). We prove that \(\phi(mn)=\phi(m)\phi(n)\) by giving a direct counting argument.
+		
+		Let
+		\[
+		A=\{\,a: 1\le a < m,\ \gcd(a,m)=1\,\},\qquad
+		B=\{\,b: 1\le b < n,\ \gcd(b,n)=1\,\}.
+		\]
+		By definition, \(|A|=\phi(m)\) and \(|B|=\phi(n)\).
+		
+		Now consider the set
+		\[
+		C=\{\,x: 1\le x < mn,\ \gcd(x,mn)=1\,\},
+		\]
+		so that \(|C|=\phi(mn)\). We will relate \(C\) to pairs in \(A\times B\) using the Chinese Remainder Theorem (see Theorem~\ref{thm:chinese_remainder}).
+		
+		\medskip
+		\noindent\emph{Step 1:}
+		For any integer \(x\),
+		\[
+		\gcd(x,mn)=1 \quad \Longleftrightarrow \quad \gcd(x,m)=1 \text{ and } \gcd(x,n)=1.
+		\]
+		Indeed, if \(\gcd(x,mn)=1\), then \(x\) shares no common prime factor with \(mn\), so it shares none with \(m\) or with \(n\). Conversely, if \(\gcd(x,m)=\gcd(x,n)=1\), then \(x\) shares no prime factor with either \(m\) or \(n\), hence shares none with their product \(mn\), so \(\gcd(x,mn)=1\).
+		
+		\medskip
+		\noindent\emph{Step 2:}
+		For each \(x\in C\), define the pair
+		\[
+		(a,b) := (x \bmod m,\ x \bmod n).
+		\]
+		By Step 1, \(x\in C\) implies \(\gcd(x,m)=1\) and \(\gcd(x,n)=1\). This means \(a\in A\) and \(b\in B\). Hence we obtain a map \(f:C\to A\times B\).
+		
+		Conversely, take any pair \((a,b)\in A\times B\). Since \(\gcd(m,n)=1\), the Chinese Remainder Theorem guarantees there exists a solution \(x\) to
+		\[
+		x\equiv a \pmod m,\qquad x\equiv b \pmod n,
+		\]
+		and moreover this solution is unique modulo \(mn\). Choosing the unique representative \(x\) with \(1\le x < mn\), we get an element \(x\in C\) (again by Step 1, since \(\gcd(a,m)=\gcd(b,n)=1\) implies \(\gcd(x,m)=\gcd(x,n)=1\)). This gives an inverse mapping from \(A\times B\) back to \(C\).
+		
+		Therefore, \(C\) and \(A\times B\) have the same number of elements:
+		\[
+		|C| = |A\times B| = |A|\cdot |B| = \phi(m)\phi(n).
+		\]
+		That is, \(\phi(mn)=\phi(m)\phi(n)\).
+	\end{proof}
+	
+	\paragraph{Note.}
+	It will be convenient to define
+	\[
+	\mathbb{Z}_n^{(*)} := \{\,x : 1 \le x < n,\ \gcd(x,n)=1\,\}.
+	\]
+	Observe that \(\mathbb{Z}_n^{(*)}\) forms a group under multiplication modulo \(n\), and moreover
+	\[
+	\phi(n)=\bigl|\mathbb{Z}_n^{(*)}\bigr|.
+	\]
+	For example,
+	\[
+	\mathbb{Z}_{12}^{(*)}=\{1,5,7,11\}.
+	\]
+	
+	Now, we have the following important results in number theory. Their proofs are omitted here due to being out of scope.
+	
+	\begin{theorem}[Fermat's Little Theorem]
+		Let \(p\) be a prime. For any integer \(a\),
+		\[
+		a^p \equiv a \pmod{p}.
+		\]
+		Equivalently, if \(\gcd(a,p)=1\), then
+		\[
+		a^{p-1} \equiv 1 \pmod{p}.
+		\]
+		\label{thm:fermat_little_theorem}
+	\end{theorem}
+	
+	\begin{theorem}[Euler's Theorem]
+		For all \(a \in \mathbb{Z}_n^{(*)}\), we have
+		\[
+		a^{\phi(n)} \equiv 1 \pmod{n}.
+		\]
+		\label{thm:euler_theorem}
+	\end{theorem}
+	
+	\begin{corollary}
+		Let \(p\) and \(q\) be \emph{distinct} primes and let \(n=pq\). For any integer \(m\) with \(1 \le m < n\), we have
+		\[
+		m^{\phi(n)+1} \equiv m \pmod{n}.
+		\]
+		\label{thm:rsa_correctness}
+	\end{corollary}
+	\begin{proof}
+		Let \(n=pq\), so \(\phi(n)=(p-1)(q-1)\). We prove the congruence modulo \(p\) and modulo \(q\), and then conclude modulo \(pq\).
+		
+		\medskip
+		\noindent\textbf{Modulo \(p\).}
+		If \(p\mid m\), then \(m\equiv 0 \pmod p\), hence \(m^{\phi(n)+1}\equiv 0 \equiv m \pmod p\).
+		If \(p\nmid m\), then \(m^{p-1}\equiv 1 \pmod p\) (Fermat's little theorem). Since \(\phi(n)=(p-1)(q-1)\) is a multiple of \(p-1\), we get \(m^{\phi(n)}\equiv 1 \pmod p\), and multiplying by \(m\) gives
+		\[
+		m^{\phi(n)+1}\equiv m \pmod p.
+		\]
+		
+		\medskip
+		\noindent\textbf{Modulo \(q\).}
+		The same argument applies. If \(q\mid m\), the congruence is trivial modulo \(q\). Otherwise, Fermat's little theorem gives \(m^{q-1}\equiv 1 \pmod q\), and since \(\phi(n)\) is a multiple of \(q-1\), we obtain
+		\[
+		m^{\phi(n)+1}\equiv m \pmod q.
+		\]
+		
+		\medskip
+		\noindent Since \(p\) and \(q\) are coprime, the Chinese Remainder Theorem implies that a congruence holding modulo \(p\) and modulo \(q\) holds modulo \(pq\) (see Lemma~\ref{lemma:crt_consequence}). Therefore,
+		\[
+		m^{\phi(n)+1}\equiv m \pmod{pq}.
+		\]
+		
+		\medskip
+		\noindent Also, if \(\gcd(n=pq, m) = 1\), then by Euler's theorem
+		\[
+		m^{\phi(n)+1}\equiv m \pmod{pq}.
+		\]
+	\end{proof}
 	
 \end{document}
