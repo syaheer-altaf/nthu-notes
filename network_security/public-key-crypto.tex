@@ -996,4 +996,90 @@
 		\]
 	\end{proof}
 	
+	\subsection{Intractable Problems}
+	The main intuition behind many ``intractable'' problems in public-key cryptography is captured by the notion of a \emph{trapdoor one-way function}. Informally, a publicly known function \(f\) is called a trapdoor one-way function if \(f(x)\) is efficiently computable for a given \(x\), but given \(y=f(x)\) it is computationally infeasible to recover a preimage \(x\) \emph{unless} some secret information (the \emph{trapdoor}) is known. While the formal definition is omitted here, the key idea remains: we build encryption/decryption mechanisms from problems that are believed to be computationally hard.
+	
+	\paragraph{Integer Factorization Problem (IFP).}
+	Given a large positive composite integer \(N\), the Fundamental Theorem of Arithmetic guarantees that \(N\) factors uniquely into primes (up to order). The IFP asks us to compute the prime factorization of \(N\). In the cryptographic setting, the common situation is \(N=pq\) where \(p\) and \(q\) are large primes: it is easy to compute \(N\) from \((p,q)\), but (as far as current classical algorithms are concerned) recovering \((p,q)\) from \(N\) is believed to be infeasible for sufficiently large parameters. In this sense, knowing the factorization (i.e., knowing \(p\) and \(q\)) plays the role of the ``trapdoor''.
+	
+	\paragraph{Discrete Logarithm Problem (DLP).}
+	Consider the multiplicative group \(\mathbb{Z}_p^{(*)}\) for a prime \(p\). This group is cyclic: there exists a generator \(g\in \mathbb{Z}_p^{(*)}\) such that
+	\[
+	\mathbb{Z}_p^{(*)}=\{g^0=1,g^1,g^2,\dots,g^{p-2}\}\quad (\text{all arithmetic modulo }p).
+	\]
+	Such a generator is called a \emph{primitive root modulo \(p\)}. A standard way to test whether a candidate \(g\) is a generator is to factor \(\phi(p) = p-1\) and check that
+	\[
+	g^{(p-1)/q_i}\not\equiv 1 \pmod p
+	\quad\text{for every prime factor } q_i \text{ of } (p-1).
+	\]
+	(Equivalently, \(g\) has multiplicative order \(p-1\).) 
+	For example, one generator of \(\mathbb{Z}_{97}^{(*)}\) is \(g=5\).
+	
+	The DLP is then: given \(p\), a generator \(g\in \mathbb{Z}_p^{(*)}\), and an element \(y\in \mathbb{Z}_p^{(*)}\), find an integer \(x\) (with \(0\le x \le p-2\)) such that
+	\[
+	y \equiv g^x \pmod p.
+	\]
+	This problem is believed to be computationally infeasible for appropriate choices of \(p\) and the underlying group parameters.
+	
+	\noindent Another interesting problem is the following, which is closely related to IFP (and, in particular, factoring can be reduced to it).
+	
+	\paragraph{Order-Finding Problem.}
+	Given two positive integers \(x\) and \(N\) (with \(1<x<N\)) such that \(\gcd(x,N)=1\), we say that \(r\) is the \emph{order} of \(x \pmod N\) if it is the least positive integer such that
+	\[
+	x^r \equiv 1 \pmod N.
+	\]
+	The order-finding problem asks us to compute this \(r\).
+	
+	\begin{theorem}[Reduction from IFP to Order-Finding]
+		Given an algorithm that computes \(\operatorname{ord}_N(x)\) for inputs \(x\) coprime to \(N\), one can factor a composite integer \(N\) (with high probability) by making a few calls to the order-finding algorithm.
+	\end{theorem}
+	
+	\begin{proof}
+		We first prove a basic claim that turns an appropriate congruence into a non-trivial factor.
+		
+		\medskip
+		\noindent\textbf{Claim.}
+		Let \(N\) be composite. If \(x^2 \equiv 1 \pmod N\) and \(x \not\equiv \pm 1 \pmod N\) (i.e., not trivial square roots of \(1\)), then
+		\[
+		\gcd(x-1,N)\quad\text{and}\quad \gcd(x+1,N)
+		\]
+		are non-trivial factors of \(N\).
+		
+		\noindent\emph{Proof of the claim.}
+		From \(x^2\equiv 1 \pmod N\), we get
+		\[
+		x^2-1 \equiv 0 \pmod N
+		\quad\Longrightarrow\quad
+		(x-1)(x+1)\equiv 0 \pmod N,
+		\]
+		so \(N\mid (x-1)(x+1)\). If \(\gcd(x-1,N)=1\), then \(x-1\) is invertible modulo \(N\) (by Bézout's identity); since
+		\((x-1)(x+1)\equiv 0 \pmod N\), multiplying both sides by \((x-1)^{-1}\) gives
+		\(x+1\equiv 0 \pmod N\), i.e., \(x\equiv -1\pmod N\), contradicting the assumption.
+		Hence \(\gcd(x-1,N)\neq 1\). Similarly, \(\gcd(x+1,N)\neq 1\).
+		Also, \(\gcd(x-1,N)\neq N\) because that would imply \(x\equiv 1\pmod N\), and \(\gcd(x+1,N)\neq N\) because that would imply \(x\equiv -1\pmod N\). Therefore both gcds lie strictly between \(1\) and \(N\), giving non-trivial factors. \(\blacksquare\)
+		
+		\medskip
+		\noindent Now we show how order-finding yields such an \(x\). Pick an integer \(y\) with \(1<y<N\) and compute \(d=\gcd(y,N)\).
+		If \(d>1\), we have already found a non-trivial factor of \(N\), so we are done. Otherwise \(\gcd(y,N)=1\), and we can ask the order-finding algorithm for
+		\[
+		r=\operatorname{ord}_N(y),
+		\quad\text{so that}\quad
+		y^r\equiv 1\pmod N.
+		\]
+		If \(r\) is odd, then we try a different \(y\).
+		If \(r\) is even, set \(x := y^{r/2}\pmod N\). Then
+		\[
+		x^2 \equiv y^r \equiv 1 \pmod N.
+		\]
+		If \(x \equiv -1 \pmod N\) (i.e., \(x \equiv N-1 \pmod N\)), then \(x\) is the ``trivial'' square root of \(1\) and the claim does not help, so we try a different \(y\).
+		Otherwise, \(x\not\equiv \pm 1 \pmod N\), and the claim implies that
+		\[
+		\gcd(x-1,N)\quad\text{and}\quad \gcd(x+1,N)
+		\]
+		are non-trivial factors of \(N\).
+		
+		\medskip
+		We are done and the only ``failure'' cases are when \(r\) is odd or when \(y^{r/2}\equiv -1\pmod N\), in which case we rerun with a new \(y\). 
+	\end{proof}
+	
 \end{document}
