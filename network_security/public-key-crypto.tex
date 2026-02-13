@@ -996,6 +996,38 @@
 		\]
 	\end{proof}
 	
+	\begin{definition}[Quadratic Residue and Modular Square Root]
+		An integer \(q\) is a quadratic residue modulo \(n\) if it is congruent to a perfect square modulo \(n\); that is, there exists an integer \(x\) such that
+		\[
+		x^2 \equiv q \pmod{n}.
+		\]
+		Any such \(x\) is called a (modular) square root of \(q\) modulo \(n\).
+		\label{def:quadratic-residue}
+	\end{definition}
+	
+	\begin{definition}[Legendre Symbol]
+		Let \(p\) be an odd prime and \(\alpha\in\mathbb{Z}\). The Legendre symbol is
+		\[
+		\Bigl(\frac{\alpha}{p}\Bigr)=
+		\begin{cases}
+			0 & \text{if } p\mid \alpha,\\
+			1 & \text{if } p\nmid \alpha \text{ and \(\alpha\) is a quadratic residue mod \(p\),}\\
+			-1 & \text{if } p\nmid \alpha \text{ and \(\alpha\) is a quadratic nonresidue mod \(p\).}
+		\end{cases}
+		\]
+		\label{def:legendre_sym}
+	\end{definition}
+	
+	\begin{theorem}[Euler's Criterion]
+		Let \(p\) be an odd prime and let \(\alpha\in\mathbb{Z}\) with \(p\nmid \alpha\). Then
+		\[
+		\Bigl(\frac{\alpha}{p}\Bigr)\equiv \alpha^{(p-1)/2} \pmod{p}.
+		\]
+		In words, \(\alpha\) is a quadratic residue modulo \(p\) iff \(\alpha^{(p-1)/2} \equiv 1 \pmod{p}\),
+		and \(\alpha\) is a quadratic nonresidue modulo \(p\) iff \(\alpha^{(p-1)/2} \equiv -1 \pmod{p}\).
+		\label{thm:euler_crit}
+	\end{theorem}
+	
 	\subsection{Intractable Problems}
 	The main intuition behind many ``intractable'' problems in public-key cryptography is captured by the notion of a \emph{trapdoor one-way function}. Informally, a publicly known function \(f\) is called a trapdoor one-way function if \(f(x)\) is efficiently computable for a given \(x\), but given \(y=f(x)\) it is computationally infeasible to recover a preimage \(x\) \emph{unless} some secret information (the \emph{trapdoor}) is known. While the formal definition is omitted here, the key idea remains: we build encryption/decryption mechanisms from problems that are believed to be computationally hard.
 	
@@ -1082,4 +1114,179 @@
 		We are done and the only ``failure'' cases are when \(r\) is odd or when \(y^{r/2}\equiv -1\pmod N\), in which case we rerun with a new \(y\). 
 	\end{proof}
 	
+	\newpage
+	
+	\section{Asymmetric-Key Cryptography Algorithms}
+	In this section, descriptions of public-key algorithms based on the aforementioned intractable problems are given.
+	
+	\subsection{Algorithms based on IFP}
+	\begin{algorithm}[H]
+		\caption{\textsc{RSA Algorithm}}
+		\label{algo:rsa}
+		
+		\textsc{RSA Key Generation:}
+		\begin{algorithmic}[1]
+			\STATE Select two large (distinct) primes uniformly at random: \(p\) and \(q\).
+			\STATE Compute the modulus \(N = pq\); note that \(\phi(N) = (p-1)(q-1)\).
+			\STATE Select an encryption exponent \(e\) such that \(1 < e < \phi(N)\) and \(\gcd(e,\phi(N))=1\).
+			\STATE Find the decryption exponent \(d\) by computing the multiplicative inverse of \(e\) modulo \(\phi(N)\) via Algorithm~\ref{alg:ext_euclid_algo}; i.e.,
+			\[
+			ed \equiv 1 \pmod{\phi(N)} \qquad \Leftrightarrow \qquad d \equiv e^{-1} \pmod{\phi(N)}.
+			\]
+			\STATE Publish the public key \(P_u=\{e,N\}\), and keep the private key \(S_u=\{d,p,q\}\) secret.
+		\end{algorithmic}
+		
+		\textsc{RSA Encryption:}
+		\begin{algorithmic}[1]
+			\REQUIRE Obtain the recipient's public key \(P_u\).
+			\STATE For a message representative \(M\) with \(0 \le M < N\), compute the ciphertext
+			\[
+			C = M^{e} \bmod N.
+			\]
+			\paragraph{Remark.} The message representative must satisfy \(0 \le M < N\). In practice, long messages are encoded into blocks.
+		\end{algorithmic}
+		
+		\textsc{RSA Decryption:}
+		\begin{algorithmic}[1]
+			\REQUIRE The recipient possesses the private key \(S_u\).
+			\STATE Recover the message representative by
+			\[
+			M = C^d \bmod N.
+			\]
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{analysis}
+		\textbf{Correctness.}
+		Since \(ed \equiv 1 \pmod{\phi(N)}\), there exists an integer \(k\) such that
+		\[
+		ed = k\phi(N)+1.
+		\]
+		Then, using \(C \equiv M^e \pmod N\), we obtain
+		\[
+		C^d \equiv (M^e)^d = M^{ed} = M^{k\phi(N)+1} \pmod N.
+		\]
+		If \(\gcd(M,N)=1\), Euler's theorem (Theorem~\ref{thm:euler_theorem}) gives \(M^{\phi(N)}\equiv 1 \pmod N\), hence \(M^{k\phi(N)+1}\equiv M \pmod N\).
+		If \(\gcd(M,N)\neq 1\), the same conclusion still holds when \(N=pq\) with \(p,q\) primes (by Corollary~\ref{thm:rsa_correctness}: \(m^{\phi(N)+1}\equiv m \pmod N\)). Therefore, in all cases,
+		\[
+		C^d \equiv M \pmod N,
+		\]
+		so decryption recovers the original message representative.
+		
+		\textbf{Remark.}
+		RSA is commonly presented as being \emph{based on} the hardness of factoring \(N=pq\). If one can compute \(\phi(N)\) for \(N=pq\), then one can factor \(N\). Indeed,
+		\[
+		\phi(N) = (p-1)(q-1) = pq - (p+q) + 1 = N - (p+q) + 1,
+		\]
+		so
+		\[
+		p+q = N + 1 - \phi(N).
+		\]
+		Given \(N\) (which is made public) and \(p+q\) (can be computed from \(\phi(N)\)), the primes \(p\) and \(q\) are the two roots of
+		\[
+		X^2 - (p+q)X + N = 0,
+		\]
+		and can therefore be recovered efficiently. Thus, finding \(\phi(N)\) (or equivalently being able to compute \(d\) from \(e\) without the trapdoor information) is at least as hard as factoring \(N\).
+	\end{analysis}
+	
+	\begin{algorithm}[H]
+		\caption{\textsc{Rabin Algorithm}}
+		\label{algo:rabin}
+		\textsc{Rabin Key Generation:}
+		\begin{algorithmic}[1]
+			\STATE Select two large (distinct) primes uniformly at random: \(p\) and \(q\).
+			\STATE Compute the modulus \(N = pq\).
+			\STATE Publish the public key \(P_u = \{N\}\), and keep the private key \(S_u = \{p,q\}\) secret.
+		\end{algorithmic}
+		
+		\textsc{Rabin Encryption:}
+		\begin{algorithmic}[1]
+			\REQUIRE Obtain the recipient's public key \(P_u\).
+			\STATE For a message representative \(M\) with \(0 \le M < N\), compute the ciphertext
+			\[
+			C = M^2 \bmod N.
+			\]
+			\paragraph{Remark.} \(C\) is always a quadratic residue modulo \(N\).
+		\end{algorithmic}
+		
+		\textsc{Rabin Decryption:}
+		\begin{algorithmic}[1]
+			\REQUIRE The recipient possesses the private key \(S_u\).
+			\STATE Compute square roots of \(C \bmod p\): \(\pm m_p\) (i.e., \(m_p^2 \equiv C \pmod p\)).
+			\STATE Compute square roots of \(C \bmod q\): \(\pm m_q\) (i.e., \(m_q^2 \equiv C \pmod q\)).
+			\STATE Find \(y_p\) and \(y_q\) such that \(y_p\cdot p + y_q\cdot q = 1\) using Algorithm~\ref{alg:ext_euclid_algo}.
+			\STATE Compute the following four candidates:
+			\[
+			m_1 = (y_p p\, m_q + y_q q\, m_p) \bmod N,\quad m_2 = (N - m_1) \bmod N,
+			\]
+			\[
+			m_3 = (y_p p\, m_q - y_q q\, m_p) \bmod N,\quad m_4 = (N - m_3) \bmod N.
+			\]
+			\paragraph{Remark.} One of the \(m_i\) equals the original \(M\); without redundancy (e.g., padding), the decryption is ambiguous and no way to determine the original message representative.
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{analysis}
+		\textbf{Correctness.} Since \(C \equiv M^2 \pmod{N=pq}\), it follows from Lemma~\ref{lemma:crt_consequence} that
+		\[
+		C \equiv M^2 \pmod p \quad \text{and} \quad C \equiv M^2 \pmod q,
+		\]
+		hence \(C\) has square roots modulo each prime. In particular, there exist \(m_p,m_q\) such that
+		\[
+		m_p^2 \equiv C \pmod p \quad \text{and} \quad m_q^2 \equiv C \pmod q,
+		\]
+		so the roots modulo the primes are 
+		\[
+		x \equiv \pm m_p \pmod p \quad\text{ and }\quad x \equiv \pm m_q \pmod q.
+		\]
+		
+		Note that the hardness comes from the infeasibility of computing square roots modulo \(N\) directly without the factors. However, using the trapdoor \((p,q)\), we can combine roots modulo \(p\) and \(q\) using the procedure outlined in the Chinese Remainder Theorem (cf. Theorem~\ref{thm:chinese_remainder}). Concretely, compute coefficients via extended Euclidean algorithm:
+		\[
+		u_p \cdot q + v_p \cdot p = 1, \qquad u_q \cdot p + v_q \cdot q = 1.
+		\]
+		Reducing these congruences gives the inverses needed by the Chinese Remainder Theorem:
+		\[
+		u_p \cdot q \equiv 1 \pmod p \quad (\text{so } u_p \equiv q^{-1} \pmod p),
+		\]
+		\[
+		u_q \cdot p \equiv 1 \pmod q \quad (\text{so } u_q \equiv p^{-1} \pmod q).
+		\]
+		(Equivalently, if you instead compute \(y_p,y_q\) such that \(y_p p + y_q q = 1\), then \(y_q \equiv q^{-1} \pmod p\) and \(y_p \equiv p^{-1} \pmod q\), so you may take \(u_p=y_q\) and \(u_q=y_p\) up to reduction.)
+		
+		Then, 
+		\[ 
+		x = \Bigl((\pm m_p)\cdot u_p \cdot q + (\pm m_q) \cdot u_q \cdot p\Bigr) \bmod N.
+		\]
+		
+		Writing them explicitly (with representatives in \([0,N)\)) yields four solutions (one for each choice of signs \((\pm m_p,\pm m_q)\)), and we may denote:
+		\[
+		m_1 \equiv (\,m_p\, u_p\, q + m_q\, u_q\, p\,) \pmod N,
+		\]
+		\[
+		m_3 \equiv (\,m_p\, u_p\, q - m_q\, u_q\, p\,) \pmod N,
+		\]
+		and the remaining two are their negations modulo \(N\):
+		\[
+		m_2 \equiv -m_1 \pmod N, \qquad m_4 \equiv -m_3 \pmod N.
+		\]
+		To see why this becomes \(N-m_i\) in the algorithmic form, take \(m_1\) as an example. By construction,
+		\[
+		m_1 \equiv m_p \pmod p,\qquad m_1 \equiv m_q \pmod q.
+		\]
+		Then
+		\[
+		-m_1 \equiv -m_p \pmod p,\qquad -m_1 \equiv -m_q \pmod q,
+		\]
+		so \(-m_1 \pmod N\) corresponds exactly to flipping both signs \((m_p,m_q)\mapsto(-m_p,-m_q)\). If we choose the standard representative in \([0,N)\), then
+		\[
+		-m_1 \bmod N =
+		\begin{cases}
+			0 & \text{if } m_1=0,\\
+			N-m_1 & \text{otherwise,}
+		\end{cases}
+		\]
+		which explains the assignments \(m_2 = (N-m_1)\bmod N\) and similarly \(m_4 = (N-m_3)\bmod N\).
+		
+		Hence, one of the four values \(m_1,m_2,m_3,m_4\) is the original \(M\).
+	\end{analysis}	
 \end{document}
