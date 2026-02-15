@@ -1288,5 +1288,70 @@
 		which explains the assignments \(m_2 = (N-m_1)\bmod N\) and similarly \(m_4 = (N-m_3)\bmod N\).
 		
 		Hence, one of the four values \(m_1,m_2,m_3,m_4\) is the original \(M\).
-	\end{analysis}	
+	\end{analysis}
+	
+	\subsection{Algorithms based on DLP}
+	\begin{algorithm}[H]
+		\caption{\textsc{Diffie--Hellman Key Exchange Protocol}}
+		\label{algo:diffie_hellman}
+		\begin{algorithmic}[1]
+			\REQUIRE User A and user B agree on a large prime \(p\) and a generator \(g\) of the cyclic multiplicative group \(\mathbb{Z}^{(\ast)}_p\).
+			\STATE User A randomly chooses a secret exponent \(a \in \{1,2,\dots,p-2\}\), and sends \(A = g^a \bmod p\) to user B.
+			\STATE User B randomly chooses a secret exponent \(b \in \{1,2,\dots,p-2\}\), and sends \(B = g^b \bmod p\) to user A.
+			\STATE User A computes \(K = B^a \bmod p\), whereas user B computes \(K = A^b \bmod p\); since \(B^a \equiv (g^b)^a \equiv g^{ab} \equiv (g^a)^b \equiv A^b \pmod p\), they obtain the same shared secret \(K\).
+			
+			\paragraph{Remark.} Diffie--Hellman is a \emph{key agreement} protocol (not an encryption scheme by itself). Its security relies on the difficulty of the (computational) DLP in the chosen group. In practice, \(K\) is typically passed through a KDF (e.g., a hash) to derive a symmetric key, which can then be used with a symmetric-key scheme such as AES.
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{algorithm}[H]
+		\caption{\textsc{ElGamal Algorithm}}
+		\label{algo:elgamal}
+		\textsc{ElGamal Key Generation:}
+		\begin{algorithmic}[1]
+			\STATE Select a large prime \(p\) along with a generator \(g\) of the group \(\mathbb{Z}^{(\ast)}_p\).
+			\STATE Select a secret exponent \(x \in \{1,2,\dots,p-2\}\) and compute \(y = g^x \bmod p\).
+			\STATE Publish the public key \(P_u = \{p,g,y\}\), and keep the private key \(S_u = \{x\}\) secret.
+		\end{algorithmic}
+		
+		\textsc{ElGamal Encryption:}
+		\begin{algorithmic}[1]
+			\REQUIRE Obtain the recipient's public key \(P_u\).
+			\STATE For a message representative \(M \in \mathbb{Z}^{(\ast)}_p\), select a fresh random exponent \(r \in \{1,2,\dots,p-2\}\) and compute
+			\[
+			A = g^r \bmod p \quad\text{and}\quad B = M\cdot y^r \bmod p,
+			\]
+			thus the ciphertext is
+			\[
+			C = (A,B).
+			\]
+		\end{algorithmic}
+		
+		\textsc{ElGamal Decryption:}
+		\begin{algorithmic}[1]
+			\REQUIRE The recipient possesses the private key \(S_u\).
+			\STATE Compute \(K = A^x \bmod p\), and determine the multiplicative inverse of \(K\) modulo \(p\) (i.e., \(K^{-1} \pmod p\)) using Algorithm~\ref{alg:ext_euclid_algo}.
+			\STATE Recover the message representative by
+			\[
+			M = B \cdot K^{-1} \bmod p.
+			\]
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{analysis}
+		\textbf{Correctness.} Since \(A \equiv g^r \pmod p\), it follows that
+		\[
+		K \equiv A^x \equiv (g^r)^x \equiv g^{rx} \pmod p,
+		\]
+		hence \(K^{-1} \equiv (g^{rx})^{-1} \pmod p\).
+		Moreover, \(B \equiv M\cdot y^r \pmod p\) and \(y \equiv g^x \pmod p\), so
+		\[
+		B \equiv M\cdot (g^x)^r \equiv M\cdot g^{rx} \pmod p.
+		\]
+		Therefore,
+		\[
+		B\cdot K^{-1} \equiv (M\cdot g^{rx})\cdot (g^{rx})^{-1} \equiv M \pmod p,
+		\]
+		which recovers the original message representative.
+	\end{analysis}
 \end{document}
