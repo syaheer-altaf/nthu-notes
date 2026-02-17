@@ -239,7 +239,7 @@
 	\paragraph{Elliptic curve group.}
 	There are two groups that frequently arise in network security:
 	\begin{enumerate}
-		\item the multiplicative group \(\mathbb{Z}_p^{*}\) (i.e., the nonzero residues modulo a prime \(p\), under multiplication), and
+		\item the multiplicative group \(\mathbb{Z}_p^{(\ast)}\) (i.e., the nonzero residues modulo a prime \(p\), under multiplication), and
 		\item the additive group of points on an elliptic curve, denoted \((\mathsf{E}(\mathbb{F}), +)\).
 	\end{enumerate}
 	The set \(\mathsf{E}(\mathbb{F})\) consists of all points \((x,y)\in \mathbb{F}^2\) satisfying a (Weierstrass) elliptic-curve equation, together with a special \emph{point at infinity} \(O\) (which serves as the \emph{additive identity}). In full generality, one may write
@@ -1354,4 +1354,243 @@
 		\]
 		which recovers the original message representative.
 	\end{analysis}
+	
+	\section{Digital Signatures}
+	A \emph{digital signature} scheme produces a short string (the \emph{signature}) that binds a message to its alleged signer. Concretely, a signer uses a private (signing) key to generate a signature on a message, and anyone holding the corresponding public (verification) key can check whether the signature is valid. A correct and secure signature scheme provides \emph{authenticity} and \emph{integrity} of the signed message; in many practical settings, it is also used to support \emph{non-repudiation}. 
+	
+	Many public-key primitives (i.e., RSA, Rabin, and ElGamal) can be adapted to give signature schemes. Broadly, signature schemes are commonly classified into two categories: (i) \emph{message recovery} schemes, where the message can be recovered from the signature, and (ii) \emph{appendix} schemes, where the signature is transmitted alongside the message.
+	
+	\subsection{Message Recovery Schemes}
+	\begin{algorithm}[H]
+		\caption{\textsc{RSA Signature Scheme}}
+		\label{algo:rsa_sig}
+		\textsc{Key Generation:}
+		\begin{algorithmic}[1]
+			\STATE Generate the public key \(P_u=\{e,N\}\) and the associated private key \(S_u=\{d,p,q\}\) according to \textsc{RSA Key Generation} (cf. Algorithm~\ref{algo:rsa}).
+		\end{algorithmic}
+		
+		\textsc{Signature Generation:}
+		\begin{algorithmic}[1]
+			\REQUIRE Signer possesses private key \(S_u\).
+			\STATE For a message representative \(m\) with \(0 \le m < N\), compute
+			\[
+			m_r = R(m),
+			\]
+			where \(R(\cdot)\) is a publicly specified \emph{invertible redundancy/encoding function} \(R:M \to M_S\), with \(M_S \subseteq \{0,1,\dots,N-1\}\) denoting the set of valid encoded representatives (so \(m_r\) is an integer representative modulo \(N\)).
+			\STATE Compute the signature (with embedded message representative)
+			\[
+			\sigma = (m_r)^d \bmod N.
+			\]
+			\COMMENT{Only the signer knows \(d\).}
+		\end{algorithmic}
+		
+		\textsc{Signature Verification:}
+		\begin{algorithmic}[1]
+			\REQUIRE Verifier has the public key \(P_u\).
+			\STATE Compute \(m_r = (\sigma)^e \bmod N\) and verify that \(m_r \in M_S\) (if not, reject).
+			\STATE Recover the message representative by
+			\[
+			m = R^{-1}(m_r).
+			\]
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{algorithm}[H]
+		\caption{\textsc{Rabin Signature Scheme}}
+		\label{algo:rabin_sig}
+		\textsc{Key Generation:}
+		\begin{algorithmic}[1]
+			\STATE Generate the public key \(P_u=\{N\}\) and the associated private key \(S_u=\{p,q\}\) according to \textsc{Rabin Key Generation} (cf. Algorithm~\ref{algo:rabin}).
+		\end{algorithmic}
+		
+		\textsc{Signature Generation:}
+		\begin{algorithmic}[1]
+			\REQUIRE Signer possesses private key \(S_u\).
+			\STATE For a message representative \(m\) with \(0 \le m < N\), compute an encoded representative \(m_r = R(m)\) such that \(m_r\) is a quadratic residue modulo \(N\).
+			\STATE Compute a square root \(\sigma\) of \(m_r\) modulo \(N\); i.e., find \(\sigma\) such that
+			\[
+			\sigma^2 \equiv m_r \pmod N,
+			\]
+			and output the signature with embedded message representative, \(\sigma\). Also, make \(R(\cdot)\) public.
+			
+			\paragraph{Remark.} Only the signer can compute square roots modulo \(N\) efficiently, since this is feasible given the trapdoor factors \((p,q)\).
+		\end{algorithmic}
+		
+		\textsc{Signature Verification:}
+		\begin{algorithmic}[1]
+			\REQUIRE Verifier has the public key \(P_u\).
+			\STATE Compute \(m_r = \sigma^2 \bmod N\) and verify that \(m_r\) is a valid encoding (i.e., \(m_r \in M_S\), the range of \(R\)); if not, reject.
+			\STATE Recover the message representative by
+			\[
+			m = R^{-1}(m_r).
+			\]
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\subsection{Appendix Schemes}
+	In an \emph{appendix} signature scheme, the signature is transmitted alongside the message (i.e., it is not intended to allow message recovery from the signature alone). Typically, this is done with the help of a cryptographically secure hash function \(H(\cdot)\), such as \texttt{SHA-256}. The message is first processed by \(H\) to produce a fixed-length string called a \emph{message digest}, and the signer then signs this digest.
+	
+	To verify, the verifier recomputes the digest of the received message using the same hash function and uses the signer’s public key to check whether the signature is valid for that digest; the message is accepted only if the check succeeds. This emphasizes that the purpose of digital signatures is not confidentiality, but \emph{authentication} and \emph{integrity}. The integrity guarantee relies on the collision resistance of \(H\): it should be computationally infeasible to find two different messages that produce the same digest.
+	
+	\begin{algorithm}[H]
+		\caption{\textsc{ElGamal Signature Scheme}}
+		\label{algo:elgamal_sig}
+		\textsc{Key Generation:}
+		\begin{algorithmic}[1]
+			\STATE Generate the public key \(P_u = \{p,g,y\}\) and the associated private key \(S_u = \{x\}\) according to \textsc{ElGamal Key Generation} (cf. Algorithm~\ref{algo:elgamal}).
+		\end{algorithmic}
+		\textsc{Signature Generation:}
+		\begin{algorithmic}[1]
+			\REQUIRE Signer possesses private key \(S_u\).
+			\STATE Select a random \(k\) such that \(1 \le k \le p-2\) and \(\gcd(k,p-1)=1\) (we do not choose \(k=0\) because it is trivial).
+			\STATE Compute \(r = g^k \bmod p\); and find \(k^{-1} \pmod{p-1}\) via Algorithm~\ref{alg:ext_euclid_algo} (this is because the exponent is residue modulo \(p-1\)).
+			\STATE For a message representative \(m\), compute the digest \(H(m)\).
+			\STATE Compute
+			\[
+			s = k^{-1}\cdot (H(m)-xr) \bmod (p-1),
+			\]
+			where \(H(\cdot)\) is a secure hash function. \COMMENT{Only the signer knows \(x\).}
+			\STATE Output the signature (to be appended alongside the message representative during transmission)
+			\[
+			\sigma = (r,s).
+			\]
+		\end{algorithmic}
+		\textsc{Signature Verification:}
+		\begin{algorithmic}[1]
+			\REQUIRE Verifier has the public key \(P_u\).
+			\STATE Verify that \(1 \le r \le p-1\) and \(0 \le s \le p-2\) (if not, reject).
+			\STATE Compute
+			\[
+			v_1 = y^r \cdot r^s \bmod p.
+			\]
+			\STATE Using the same secure hash function, compute \(H(m)\) and evaluate
+			\[
+			v_2 = g^{H(m)} \bmod p.
+			\]
+			\STATE Accept the message if and only if \(v_1 = v_2\).
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{analysis}
+		\textbf{Correctness.} By construction,
+		\[
+		s \equiv k^{-1}\cdot (H(m)-xr) \pmod{p-1},
+		\]
+		and since \(\gcd(k,p-1)=1\), multiplying both sides by \(k\) and re-arranging terms yields
+		\[
+		H(m) \equiv ks + xr \pmod{p-1}.
+		\]
+		Since \(g\) is a generator of \(\mathbb{Z}^{(\ast)}_p\) (so exponent arithmetic is modulo \(p-1\)), we may exponentiate \(g\) on both sides to obtain the congruence modulo \(p\):
+		\begin{align*}
+			g^{H(m)} &\equiv g^{ks+xr} \pmod p\\
+			&\equiv g^{ks}\cdot g^{xr} \pmod p\\
+			&\equiv (g^k)^s \cdot (g^x)^r \pmod p\\
+			&\equiv r^s \cdot y^r \pmod p.
+		\end{align*}
+		Thus \(g^{H(m)} \equiv y^r \cdot r^s \pmod p\), establishing \(v_1=v_2\) for the same message representative digest \(H(m)\).
+	\end{analysis}
+	
+	We now look at an interesting standardized variant of the ElGamal signature scheme called the \emph{digital signature algorithm} (DSA).
+	
+	\begin{algorithm}[H]
+		\caption{\textsc{DSA Signature Scheme}}
+		\label{algo:dsa_sig}
+		\textsc{Key Generation:}
+		\begin{algorithmic}[1]
+			\STATE Select a large prime \(p\) at random.
+			\STATE Choose a prime \(q < p\) such that \(q \mid (p-1)\).
+			\STATE Choose an integer \(h\) with \(1 < h < p-1\) and compute
+			\[
+			\alpha = h^{(p-1)/q} \bmod p.
+			\]
+			\STATE If \(\alpha = 1\), repeat the previous step with a new \(h\).
+			\paragraph{Remark.} \(\alpha\) generates a cyclic subgroup of \(\mathbb{Z}^{(\ast)}_p\) of order \(q\).
+			\STATE Select a random \(x\) such that \(1 \le x \le q-1\) and compute
+			\[
+			y = \alpha^x \bmod p.
+			\]
+			\STATE Publish the public key \(P_u = \{p,q,\alpha,y\}\) and keep the private key \(S_u = \{x\}\) secret.
+		\end{algorithmic}
+		
+		\textsc{Signature Generation:}
+		\begin{algorithmic}[1]
+			\REQUIRE Signer possesses private key \(S_u\).
+			\STATE Select a random \(k\) such that \(1 \le k \le q-1\).
+			\STATE Compute \(r = (\alpha^k \bmod p) \bmod q\). If \(r=0\), select a new \(k\) and repeat.
+			\STATE Find \(k^{-1} \pmod q\) via Algorithm~\ref{alg:ext_euclid_algo}.
+			\STATE For a message representative \(m\), compute \(H(m)\) (reduced modulo \(q\)).
+			\STATE Compute
+			\[
+			s = k^{-1}\cdot (H(m) + xr) \bmod q,
+			\]
+			where \(H(\cdot)\) is a secure hash function. \COMMENT{Only the signer knows \(x\).}
+			\STATE If \(s=0\), select a new \(k\) and repeat.
+			\STATE Output the signature (to be appended alongside the message representative during transmission)
+			\[
+			\sigma = (r,s).
+			\]
+		\end{algorithmic}
+		
+		\textsc{Signature Verification:}
+		\begin{algorithmic}[1]
+			\REQUIRE Verifier has the public key \(P_u\).
+			\STATE Verify that \(0 < r < q\) and \(0 < s < q\) (if not, reject).
+			\STATE Find \(\omega = s^{-1} \bmod q\) via Algorithm~\ref{alg:ext_euclid_algo}.
+			\STATE Using the same secure hash function, compute \(H(m)\) (reduced modulo \(q\)) and evaluate
+			\[
+			u_1 = \omega \cdot H(m) \bmod q \quad\text{and}\quad u_2 = \omega \cdot r \bmod q.
+			\]
+			\STATE Compute
+			\[
+			v = (\alpha^{u_1}\cdot y^{u_2} \bmod p)\bmod q.
+			\]
+			\STATE Accept the message if and only if \(v = r\).
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{analysis}
+		\textbf{Correctness.} By construction,
+		\[
+		s \equiv k^{-1}\cdot (H(m) + xr) \pmod q,
+		\]
+		and since \(1 \le k \le q-1\) (so \(k\) is invertible modulo \(q\)), multiplying both sides by \(k\) and re-arranging the terms gives
+		\[
+		H(m) \equiv ks - xr \pmod q.
+		\]
+		It follows that
+		\begin{align*}
+			u_1 &\equiv \omega \cdot H(m) \pmod q\\
+			&\equiv \omega \cdot (ks - xr) \pmod q\\
+			&\equiv k - x(\omega r) \pmod q \quad \text{because \(\omega \equiv s^{-1} \pmod q\)}\\
+			&\equiv k - xu_2 \pmod q,
+		\end{align*}
+		and thus
+		\[
+		u_1 + xu_2 \equiv k \pmod q.
+		\]
+		Since \(\alpha\) has order \(q\) in \(\mathbb{Z}^{(\ast)}_p\), we may exponentiate \(\alpha\) (modulo \(p\)) to obtain
+		\[
+		\alpha^{u_1}\cdot (\alpha^x)^{u_2} \equiv \alpha^k \pmod p.
+		\]
+		Using \(y \equiv \alpha^x \pmod p\), this implies
+		\[
+		(\alpha^{u_1}\cdot y^{u_2} \bmod p)\bmod q = (\alpha^k \bmod p)\bmod q = r,
+		\]
+		so \(v=r\) for the same representative digest \(H(m)\).
+	\end{analysis}
+	
+	\section{Elliptic Curve Cryptography}
+	Recall that for a chosen field \(\mathbb{F}\), we can describe an elliptic curve \(\mathsf{E}(\mathbb{F})\) whose points \((x,y) \in \mathbb{F}^2\)---along with the special point at infinity \(O\)---form an additive group denoted by \((\mathsf{E}(\mathbb{F}), +)\). Moreover, operations like point addition \(+\) and doubling depend on the choice of the elliptic curve (i.e., on the curve equation and the underlying field). The goal is to modify public-key primitives that utilize DLP (e.g., Diffie--Hellman, ElGamal, and DSA) by replacing the underlying intractable problem with the \emph{elliptic curve discrete logarithm problem} (ECDLP).
+	
+	\textbf{ECDLP.} Consider a finite field \(\mathbb{F}_q\) (in practice, \(q\) is a large prime or a power of \(2\)) and an elliptic curve \(\mathsf{E}\) defined over \(\mathbb{F}_q\). Then \(\mathsf{E}(\mathbb{F}_q)\) is a finite abelian group. Fix a base point \(G \in \mathsf{E}(\mathbb{F}_q)\) and let \(n\) denote its (group) order, i.e., the smallest positive integer such that
+	\[
+	n\cdot G = O.
+	\]
+	We work in the cyclic subgroup \(\langle G\rangle = \{x\cdot G : x \in \mathbb{Z}\}\) (and \(|\langle G \rangle| = n\)). The ECDLP asks: given \(\mathsf{E}(\mathbb{F}_q)\), \(G\), and a point \(Y \in \langle G\rangle\), find an integer \(x \in \{0,1,\dots,n-1\}\) such that
+	\[
+	Y = x \cdot G.
+	\]
+	
+	\paragraph{Remark.} In \(\mathbb{Z}_p^{(\ast)}\), a ``generator'' \(g\) is typically a primitive root that generates the entire group (so \(\langle g\rangle=\mathbb{Z}_p^{(\ast)}\) and \(|\langle g\rangle|=p-1\)). In elliptic curve cryptography, the base point \(G\) may be any point on \(\mathsf{E}(\mathbb{F}_q)\) in the sense that it always defines a cyclic subgroup \(\langle G\rangle\); however, for cryptographic security one chooses \(G\) so that \(|\langle G\rangle|=n\) is large (typically prime or nearly prime).
+	
 \end{document}
