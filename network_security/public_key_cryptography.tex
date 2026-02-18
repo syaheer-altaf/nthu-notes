@@ -1574,7 +1574,7 @@
 		\]
 		Using \(y \equiv \alpha^x \pmod p\), this implies
 		\[
-		(\alpha^{u_1}\cdot y^{u_2} \bmod p)\bmod q = (\alpha^k \bmod p)\bmod q = r,
+		(\alpha^{u_1}\cdot y^{u_2} \bmod p)\bmod q = v = (\alpha^k \bmod p)\bmod q = r,
 		\]
 		so \(v=r\) for the same representative digest \(H(m)\).
 	\end{analysis}
@@ -1593,4 +1593,102 @@
 	
 	\paragraph{Remark.} In \(\mathbb{Z}_p^{(\ast)}\), a ``generator'' \(g\) is typically a primitive root that generates the entire group (so \(\langle g\rangle=\mathbb{Z}_p^{(\ast)}\) and \(|\langle g\rangle|=p-1\)). In elliptic curve cryptography, the base point \(G\) may be any point on \(\mathsf{E}(\mathbb{F}_q)\) in the sense that it always defines a cyclic subgroup \(\langle G\rangle\); however, for cryptographic security one chooses \(G\) so that \(|\langle G\rangle|=n\) is large (typically prime or nearly prime).
 	
+	\begin{algorithm}[H]
+		\caption{\textsc{EC Diffie--Hellman Key Exchange Protocol}}
+		\label{algo:ec_diffie_hellman}
+		\begin{algorithmic}[1]
+			\REQUIRE User A and user B agree on a curve \(\mathsf{E}(\mathbb{F}_q)\) and a base point \(G \in \mathsf{E}(\mathbb{F}_q)\) that generates a large cyclic subgroup \(\langle G\rangle\). Let \(\mathsf{ord}(G)=n\).
+			\STATE User A randomly chooses a secret integer \(a \in \{1,2,\dots,n-1\}\), and sends \(A = a\cdot G\) to user B.
+			\STATE User B randomly chooses a secret integer \(b \in \{1,2,\dots,n-1\}\), and sends \(B = b\cdot G\) to user A.
+			\STATE User A computes \(K = a\cdot B\), whereas user B computes \(K = b\cdot A\); since
+			\[
+			a\cdot B = a\cdot (b\cdot G) = (ab)\cdot G = (ba)\cdot G = b\cdot (a\cdot G) = b\cdot A,
+			\]
+			they obtain the same shared secret point \(K \in \langle G\rangle\).
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{algorithm}[H]
+		\caption{\textsc{EC ElGamal Algorithm}}
+		\label{algo:ec_elgamal}
+		\textsc{Key Generation:}
+		\begin{algorithmic}[1]
+			\STATE Select a curve \(\mathsf{E}(\mathbb{F}_q)\) along with a base point \(G \in \mathsf{E}(\mathbb{F}_q)\); define \(n := \mathsf{ord}(G)\).
+			\STATE Select a secret integer \(x \in \{1,2,\dots,n-1\}\) and compute \(Y = x \cdot G\).
+			\STATE Publish the public key \(P_u = \{\mathsf{E}(\mathbb{F}_q),G,Y\}\) and keep the private key \(S_u = \{x\}\) secret.
+		\end{algorithmic}
+		
+		\textsc{Encryption:}
+		\begin{algorithmic}[1]
+			\REQUIRE Obtain the recipient's public key \(P_u\).
+			\STATE Represent the message \(M\) as a point on the curve \(P_M \in \mathsf{E}(\mathbb{F}_q)\).
+			\STATE Select a fresh random integer \(r \in \{1,2,\dots,n-1\}\), and compute
+			\[
+			A = r\cdot G \quad\text{and}\quad B = P_M + r\cdot Y,
+			\]
+			thus the ciphertext is
+			\[
+			C = (A,B).
+			\]
+		\end{algorithmic}
+		
+		\textsc{Decryption:}
+		\begin{algorithmic}[1]
+			\REQUIRE The recipient possesses the private key \(S_u\).
+			\STATE Compute
+			\[
+			P_M = B - x\cdot A,
+			\]
+			and recover \(M\) from \(P_M\).
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\begin{algorithm}[H]
+		\caption{\textsc{ECDSA}}
+		\label{algo:ecdsa_sig}
+		\textsc{Key Generation:}
+		\begin{algorithmic}[1]
+			\STATE Select a curve \(\mathsf{E}(\mathbb{F}_q)\) along with a base point \(G \in \mathsf{E}(\mathbb{F}_q)\) such that its order \(n\) is a large prime.
+			\STATE Select a random integer \(x \in \{1,2,\dots,n-1\}\) and compute \(Y = x \cdot G\).
+			\STATE Publish the public key \(P_u = \{\mathsf{E}(\mathbb{F}_q),G,n,Y\}\) and keep the private key \(S_u = \{x\}\) secret.
+		\end{algorithmic}
+		
+		\textsc{Signature Generation:}
+		\begin{algorithmic}[1]
+			\REQUIRE Signer possesses private key \(S_u\).
+			\STATE Select a random \(k \in \{1,2,\dots,n-1\}\), and compute the point
+			\[
+			(p_x,p_y) = k \cdot G.
+			\]
+			\STATE Compute \(r = p_x \bmod n\). If \(r=0\), select a new \(k\) and repeat.
+			\STATE Find \(k^{-1} \pmod n\) via Algorithm~\ref{alg:ext_euclid_algo}.
+			\STATE For a message representative \(m\), compute
+			\[
+			s = k^{-1}\cdot (H(m) + xr) \bmod n,
+			\]
+			where \(H(\cdot)\) is a secure hash function (interpreted as an integer reduced modulo \(n\)).
+			\STATE If \(s=0\), select a new \(k\) and repeat.
+			\STATE Output the signature (to be appended alongside the message representative during transmission)
+			\[
+			\sigma = (r,s).
+			\]
+		\end{algorithmic}
+		
+		\textsc{Signature Verification:}
+		\begin{algorithmic}[1]
+			\REQUIRE Verifier has the public key \(P_u\).
+			\STATE Verify that \(0 < r < n\) and \(0 < s < n\) (if not, reject).
+			\STATE Find \(\omega = s^{-1} \bmod n\) via Algorithm~\ref{alg:ext_euclid_algo}.
+			\STATE Using the same secure hash function, compute \(H(m)\) (as an integer reduced modulo \(n\)) and evaluate
+			\[
+			u_1 = \omega \cdot H(m) \bmod n \quad\text{and}\quad u_2 = \omega \cdot r \bmod n.
+			\]
+			\STATE Compute the point
+			\[
+			(p_x',p_y') = u_1 \cdot G + u_2 \cdot Y,
+			\]
+			and let \(v = p_x' \bmod n\).
+			\STATE Accept the message if and only if \(v=r\).
+		\end{algorithmic}
+	\end{algorithm}
 \end{document}
