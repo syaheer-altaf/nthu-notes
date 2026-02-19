@@ -1591,7 +1591,7 @@
 	Y = x \cdot G.
 	\]
 	
-	\paragraph{Remark.} In \(\mathbb{Z}_p^{(\ast)}\), a ``generator'' \(g\) is typically a primitive root that generates the entire group (so \(\langle g\rangle=\mathbb{Z}_p^{(\ast)}\) and \(|\langle g\rangle|=p-1\)). In elliptic curve cryptography, the base point \(G\) may be any point on \(\mathsf{E}(\mathbb{F}_q)\) in the sense that it always defines a cyclic subgroup \(\langle G\rangle\); however, for cryptographic security one chooses \(G\) so that \(|\langle G\rangle|=n\) is large (typically prime or nearly prime).
+	\paragraph{Remark.} In \(\mathbb{Z}_p^{(\ast)}\), a ``generator'' \(g\) is typically a primitive root that generates the entire group (so \(\langle g\rangle=\mathbb{Z}_p^{(\ast)}\) and \(|\langle g\rangle|=p-1\)). In elliptic curve cryptography, the base point \(G\) may be any point on \(\mathsf{E}(\mathbb{F}_q)\) in the sense that it always defines a cyclic subgroup \(\langle G\rangle\); however, for cryptographic security one chooses \(G\) so that \(|\langle G\rangle|=n\) is a large prime (especially for ECDSA (cf. Algorithm~\ref{algo:ecdsa_sig}) since it requires one to compute multiplicative inverses of residue modulo \(n\) and thus is only feasible if \(n\) is a prime number).
 	
 	\begin{algorithm}[H]
 		\caption{\textsc{EC Diffie--Hellman Key Exchange Protocol}}
@@ -1691,4 +1691,39 @@
 			\STATE Accept the message if and only if \(v=r\).
 		\end{algorithmic}
 	\end{algorithm}
+	
+	\section{Concluding Remarks}
+	
+	In this note, we have seen how fundamentals of number theory and abstract algebra, together with problems believed to be computationally infeasible, give rise to important public-key primitives such as RSA, ElGamal, and DSA. Today, elliptic curve cryptography (ECC) is widely used in standards and real systems because it offers strong security with relatively small key sizes; a commonly cited comparison is that ECC with a 160-bit key provides security comparable to 1024-bit RSA---this makes ECC especially attractive for constrained settings, such as smart cards used for authentication via digital signatures.
+	
+	A particularly notable curve is \texttt{Curve25519}, given by
+	\[
+	y^2 = x^3 + 486662x^2 + x
+	\]
+	(in Montgomery form) over the field \(\mathsf{GF}(2^{255}-19)\). This curve is primarily used (via \texttt{X25519}) in EC Diffie--Hellman key exchange to derive session keys for secure communication such as \texttt{TLS} and \texttt{SSH}. Additionally, a closely related construction known as \texttt{Ed25519} (over the same field, but expressed in a twisted Edwards form) is primarily used for digital signatures via \emph{EdDSA}, typically used alongside the hash function \texttt{SHA-512}.
+	
+	Another interesting curve is \texttt{secp256k1}, which is used in Bitcoin for digital signatures. The curve is often referred to as a Koblitz curve and is given in short Weierstrass form
+	\[
+	y^2 \equiv x^3 + ax + b \pmod p
+	\]
+	with the following parameters (256~bits):
+	\begin{center}
+		\resizebox{0.95\linewidth}{!}{%
+			\begin{tabular}{c|c|l}
+				\textbf{Parameters} & \textbf{Description} & \textbf{Values in Hex}\\
+				\hline
+				\(p\) & the prime value & \texttt{0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f}\\
+				\(\mathsf{GF}(p)\) & the working field & N/A\\
+				\(a\) & value in curve & \texttt{0x0000000000000000000000000000000000000000000000000000000000000000}\\
+				\(b\) & value in curve & \texttt{0x0000000000000000000000000000000000000000000000000000000000000007}\\
+				\(G(x)\) & \(x\) value of the base point & \texttt{0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798}\\
+				\(G(y)\) & \(y\) value of the base point & \texttt{0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8}\\
+				\(n\) & order of base point & \texttt{0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141}
+			\end{tabular}%
+		}
+	\end{center}
+	Note that \(n\) above is also a prime number.
+	
+	
+	Despite the success of public-key cryptography, there is a looming long-term threat to the intractable problems we are utilizing as of current. In particular, Shor's algorithm (a quantum algorithm) can solve integer factorization and discrete logarithms in polynomial time on a sufficiently capable quantum computer. In 2026, we still do not have quantum computers powerful enough to break the parameters we used in practice, but the theory alone motivates the move to problems believed to be ``quantum-resistant'' (i.e., no efficient quantum algorithms are known), such as \emph{lattice-based (public key) cryptography}. This broader endeavour is known as \emph{post-quantum cryptography}.
 \end{document}
