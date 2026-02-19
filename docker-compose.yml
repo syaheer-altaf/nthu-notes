@@ -9,8 +9,8 @@ services:
     command: >
       sh -c "
         mkdir -p /workdir/compiled &&
-        sudo pdflatex -output-directory=/workdir/compiled/randomized_algorithm /workdir/randomized_algorithm/1_discrete_probability_note.tex &&
-        sudo pdflatex -output-directory=/workdir/compiled/randomized_algorithm /workdir/randomized_algorithm/2_selected_problems_in_discrete_probability.tex &&
-        sudo pdflatex -output-directory=/workdir/compiled/randomized_algorithm /workdir/randomized_algorithm/3_some_randomized_algorithms.tex &&
-        sudo pdflatex -output-directory=/workdir/compiled/network_security /workdir/network_security/public_key_cryptography.tex
+        pdflatex -output-directory=/workdir/compiled /workdir/randomized_algorithm/1_discrete_probability_note.tex &&
+        pdflatex -output-directory=/workdir/compiled /workdir/randomized_algorithm/2_selected_problems_in_discrete_probability.tex &&
+        pdflatex -output-directory=/workdir/compiled /workdir/randomized_algorithm/3_some_randomized_algorithms.tex &&
+        pdflatex -output-directory=/workdir/compiled /workdir/network_security/public_key_cryptography.tex
       "
