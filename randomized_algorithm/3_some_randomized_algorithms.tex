@@ -224,7 +224,8 @@
 	\end{analysis}
 	
 	\section{Metropolis-Hastings Algorithm}
-	The goal of this randomized algorithm is to sample from a complex target distribution via the construction of an \emph{ergodic}, \emph{time-reversible} Markov chain whose stationary distribution \emph{is} the target distribution. Recall that an ergodic Markov chain is a chain whose states are \emph{ergodic}; that is, they are aperiodic, irreducible, and positive recurrent. We then introduce the definition of a time-reversible Markov chain with some important lemmas to make sense of the algorithm.
+	The goal of this randomized algorithm is to sample from a complex target distribution via the construction of an \emph{ergodic}, \emph{time-reversible} Markov chain whose stationary distribution \emph{is} the target distribution. Recall that a finite Markov chain is called ergodic if it is irreducible and aperiodic. Informally, it means to say that every state in the chain is reachable and the states do not get trapped in strict repeating cycles of steps.
+	We then introduce the definition of a time-reversible Markov chain with some important lemmas to make sense of the algorithm.
 	
 	\begin{definition}[Time-reversible Markov chain]
 		Let \(\vec{P}\) be a transition matrix and let \(\overline{\pi} = (\pi_0,\dots,\pi_n)\) be a stationary distribution with \(\sum_i \pi_i=1\). A Markov chain is said to be \textbf{time-reversible} when, for any pair of states \(i,j\),
@@ -241,7 +242,7 @@
 		\[
 		Q_{i,j} = \frac{\pi_j P_{j,i}}{\pi_i}.
 		\]
-		Note that if our Markov chain is time-reversible, it is not difficult to see that \(Q_{i,j} = P_{i,j}\).
+		Note that if our Markov chain is time-reversible, it is not difficult to see that \(Q_{i,j} = P_{i,j}\) from Definition~\ref{time-reversible}.
 		\label{lemma-1}
 	\end{lemma}
 	\begin{proof}
@@ -252,13 +253,18 @@
 			&= \frac{\Pr(x_{m-1}, x_{m-2})}{\Pr(x_{m-1})}\\
 			&= \Pr(x_{m-2} \mid x_{m-1}).
 		\end{align*}
-		Suppose the claim holds true for all \(k\) states. Then,
+		Suppose the claim holds true for all \(k+1\) states. Then,
 		\begin{align*}
-			\Pr(x_{k-1} \mid x_k, x_{k+1},\dots,x_m) &= \frac{\Pr(x_{k-1},\dots, x_m)}{\Pr(x_k,\dots, x_m)}\\
-			&= \frac{\Pr(x_m)\Pr(x_{m-1} \mid x_m)\Pr(x_{m-2} \mid x_{m-1})\dots\Pr(x_{k} \mid x_{k+1})\Pr(x_{k-1} \mid x_{k})}{\Pr(x_m)\Pr(x_{m-1} \mid x_m)\Pr(x_{m-2} \mid x_{m-1})\dots\Pr(x_{k} \mid x_{k+1})}\\
-			&= \Pr(x_{k-1} \mid x_{k}).
+			\Pr(x_{m-k-1} \mid x_{m-k}, x_{m-k+1},\dots,x_m) = \frac{\Pr(x_{m-k-1},\dots, x_m)}{\Pr(x_{m-k},\dots, x_m)}
 		\end{align*}
-		The second equality comes from the induction hypothesis and the multiplication rule. Thus, we establish that the reversed-sequence chain is indeed Markovian, as it has the memoryless property. Furthermore, we can compute the transition probability by the definition of conditional probability (when the chain started in \emph{stationarity}):
+		\begin{flalign*}
+			= \frac{\Pr(x_m)\Pr(x_{m-1} \mid x_m)\Pr(x_{m-2} \mid x_{m-1})\dots\Pr(x_{m-k} \mid x_{m-k+1})\Pr(x_{m-k-1} \mid x_{m-k},x_{m-k+1})}{\Pr(x_m)\Pr(x_{m-1} \mid x_m)\Pr(x_{m-2} \mid x_{m-1})\dots\Pr(x_{m-k} \mid x_{m-k+1})} &
+		\end{flalign*}
+		\begin{align*}
+			&= \Pr(x_{m-k-1} \mid x_{m-k},x_{m-k+1}) &&(\text{similar argument as base case})\\
+			&= \Pr(x_{m-k-1} \mid x_{m-k}).
+		\end{align*}
+		The second equality comes from the multiplication rule and the induction hypothesis. Thus, we establish that the reversed-sequence chain is indeed Markovian, as it has the memoryless property. Furthermore, we can compute the transition probability by the definition of conditional probability (when the chain started in \emph{stationarity}):
 		\begin{align*}
 			Q_{i,j} &= \Pr(X_{t-1}=j\mid X_t=i)\\
 			&= \frac{\Pr(X_t=i\mid X_{t-1}=j)\Pr(X_{t-1}=j)}{\Pr(X_t=i)}\\
@@ -267,48 +273,80 @@
 	\end{proof}
 	
 	\begin{lemma}
-		Suppose we have a Markov chain with transition matrix \(\vec{P}\) and stationary distribution \(\overline{\pi}\). Suppose also that the chain is time-reversible; in that case, the reversed chain also has the same stationary distribution \(\overline{\pi}\).
+		Suppose we have a Markov chain with transition matrix \(\vec{P}\) and stationary distribution \(\overline{\pi}\). Suppose also that the chain is time-reversible. Then, the reversed chain also has the same stationary distribution \(\overline{\pi}\).
 		\label{time-reverse-lemma}
 	\end{lemma}
 	\begin{proof}
-		From Definition~\ref{time-reversible}, we know that \(\pi_iP_{i,j} = \pi_jP_{j,i}\). Consequently,
-		\begin{align*}
-			\sum_i\pi_iP_{i,j} &= \pi_j\sum_i P_{j,i}\\
-			&= \pi_j.
-		\end{align*}
-		This holds true for any \(j\)-th entry of \(\overline{\pi}\cdot\vec{P}\). This proves that \(\overline{\pi} = \overline{\pi}\vec{P}\). This fact, coupled with the result in Lemma~\ref{lemma-1}, shows why \(\vec{Q} = \vec{P}\) where \(\vec{Q}\) is the reversed chain's transition matrix.
+		Since \(\vec{Q} = \vec{P}\) from Lemma~\ref{lemma-1}, where \(\vec{Q}\) is the reversed chain's transition matrix, suffice it to say that \(\overline{\pi}\) is also the stationary distribution for the reversed chain.
 	\end{proof}
 	
-	From Lemma~\ref{lemma-1} and Lemma~\ref{time-reverse-lemma}, we know that if a Markov chain is time reversible, then the transition matrix and the stationary distribution are the same for forward-time and reverse-time. Let us use this to our advantage in constructing an algorithm. \textbf{Note.} On a finite state space, \emph{ergodic} usually means
-	\emph{irreducible and aperiodic}. Irreducibility implies existence and
-	uniqueness of a stationary distribution; aperiodicity ensures convergence
-	to it from any initial distribution (see Theorem~19 of \texttt{My Notes for Discrete Probability: Detailed Explanations on Concepts and Proofs}).
+	From Lemma~\ref{lemma-1} and Lemma~\ref{time-reverse-lemma}, we know that if a Markov chain is time reversible, then the transition matrix and the stationary distribution are the same for forward-time and reverse-time. Let us use this to our advantage in constructing an algorithm that moves from one state to another according to a transition matrix \(\vec{P}\). In particular, suppose we have a target distribution \(\overline{\rho}\) we wish to sample from. We construct an algorithm whose transition matrix satisfies the detailed-balance equation; i.e., \(\rho_iP_{i,j} = \rho_jP_{j,i}\). Consequently, 
+	\begin{align*} 
+		\sum_i\rho_iP_{i,j} &= \rho_j\sum_i P_{j,i}\\ 
+		&= \rho_j. 
+	\end{align*} 
+	
+	This holds true for any \(j\)-th entry of \(\overline{\rho}\cdot\vec{P}\). This proves that \(\overline{\rho}\cdot\vec{P} = \overline{\rho}\). Thus, with the right transition matrix, the constructed chain has the target distribution as the stationary distribution which implies that it is also time-reversible, and hence both lemmas apply. The remaining fact is to ensure ergodicity.
+	
+	\paragraph{Note.} On a finite state space, \emph{ergodic} usually means \emph{irreducible and aperiodic}.
+	Irreducibility implies the existence and uniqueness of a stationary distribution, and aperiodicity then ensures convergence to it from any initial distribution
+	(see Theorem~19 of \texttt{My Notes for Discrete Probability: Detailed Explanations on Concepts and Proofs}).
 	
 	\begin{algorithm}[H]
-		\caption{\textsc{Metropolis-Hastings Algorithm}}
+		\caption{\textsc{Metropolis-Hastings Algorithm (Discrete Version)}}
 		\label{alg:metropolis}
-		\textsc{Metropolis}
+		\textsc{Metropolis}(\(\rho\))
 		\begin{algorithmic}[1]
-			\STATE Select an arbitrary state \(X_0 = x\); compute \(\pi_x\).
-			\FOR{all \(i\)}
-			\STATE Propose \(X_{i+1} = y\) such that \(y \in N(x)\); compute \(\pi_y\). \COMMENT{\(N(x)\) refers to the neighbor of \(x\)}
-			\IF{\(U[0,1] < \pi_y/\pi_x\)}
-			\STATE \(x \gets y\); \(\pi_x \gets \pi_y\). \COMMENT{assume all \(\pi_x > 0\)}
-			\ELSE
-			\STATE Set \(X_{i+1} = x\).
+			\REQUIRE A target distribution \(\rho\) (typically a PMF). The goal is to sample from this distribution.
+			\STATE Define number of steps \(N\).
+			\STATE Select an arbitrary state \(x\) such that \(\rho(x) > 0\).
+			\FOR{\(i=0,\ldots,N-1\)}
+			\STATE Compute \(\rho(x)\).
+			\STATE Propose a new state \(y\) from a (discrete) distribution conditional on \(x\); say, \(q(\cdot\mid x)\).
+			\STATE Compute \(\rho(y)\).
+			\IF{\(U[0,1] < \frac{\rho(y)}{\rho(x)}\cdot\frac{q(x\mid y)}{q(y\mid x)}\)}
+			\STATE \(x \gets y\).
 			\ENDIF
 			\ENDFOR
-			\RETURN
+			\RETURN \(x\).
 		\end{algorithmic}
 	\end{algorithm}
 	\begin{analysis}
-		By the construction of the algorithm, every state is reachable, which implies irreducibility. Moreover, Step 6 of the algorithm ensures the probability of a self-loop, which then implies aperiodicity. Thus, the chain is ergodic. Notice that Step 4 states that the state \(y\) is accepted with probability \(\min(1, \pi_y/\pi_x)\).
-		\begin{enumerate}
-			\item If \(\pi_x \le \pi_y\), then \(P_{x,y} = 1\) and \(P_{y,x} = \pi_x/\pi_y\). This implies that \(\pi_x P_{x,y} = \pi_y P_{y,x}\).
-			\item If \(\pi_x > \pi_y\), then \(P_{x,y} = \pi_y/\pi_x\) and \(P_{y,x} = 1\). This implies that \(\pi_x P_{x,y} = \pi_y P_{y,x}\).
-		\end{enumerate}
-		So, either way, the chain is time-reversible. Hence, the stationary distribution is uniquely determined by the values of \(\pi_x\), by Lemma~\ref{time-reverse-lemma}. Also, \(\pi_x\) can be interpreted as a \emph{score} of how close \(x\) is to our target distribution.
+		The analysis here is to show that the algorithm constructs a time-reversible Markov chain with stationary distribution \(\rho\), and that under appropriate conditions on the proposal distribution \(q(\cdot\mid x)\), the chain is ergodic.
+		\paragraph{Transition kernel.}
+		Define the acceptance probability (from Step~7 of the algorithm)
+		\begin{equation}
+		\label{eq:acceptance}
+			\alpha(x,y) :=\min\Big(1, \frac{\rho(y)}{\rho(x)}\cdot\frac{q(x\mid y)}{q(y\mid x)}\Big).
+		\end{equation}
+		The transition probabilities induced by the algorithm are
+		\begin{equation}
+		\label{eq:pxy}
+			P_{x,y}=q(y\mid x)\alpha(x,y), \qquad x\neq y,
+		\end{equation}
+		and
+		\begin{equation}
+		\label{eq:self_loop}
+			P_{x,x} = 1-\sum_{y\neq x}q(y\mid x)\alpha(x,y).
+		\end{equation}
+		Similarly,
+		\begin{equation}
+		\label{eq:pyx}
+			P_{y,x} = q(x\mid y)\alpha(y,x).
+		\end{equation}
+		
+		\paragraph{Time-reversibility.} We want to show that the detailed-balance equation is satisfied under the transition kernel which implies time-reversibility with \(\rho\) being the stationary distribution from the previous discussion. Observe the following when \(x \neq y\):
+		\begin{itemize}
+			\item \textbf{Case 1:} \(\alpha(x,y) < 1\) and \(\alpha(y,x) = 1\), and thus from Equations~\ref{eq:acceptance},~\ref{eq:pxy}, and~\ref{eq:pyx}, \(\rho(x)P_{x,y} = \rho(y)\cdot\)\textcolor{red}{\(q(x\mid y)\)}\(=\rho(y)\cdot\)\textcolor{red}{\(P_{y,x}\)}.
+			\item \textbf{Case 2:} \(\alpha(x,y) = 1\) and \(\alpha(y,x) < 1\), and thus from Equations~\ref{eq:acceptance},~\ref{eq:pxy}, and~\ref{eq:pyx}, \(\rho(y)P_{y,x} = \rho(x)\cdot\)\textcolor{red}{\(q(y\mid x)\)}\(=\rho(x)\cdot\)\textcolor{red}{\(P_{x,y}\)}.
+			\item \textbf{Case 3:} \(\alpha(x,y) = \alpha(y,x) = 1\). In this case, Equation~\ref{eq:acceptance} implies that \(\rho(y)\cdot q(x\mid y) = \rho(x)\cdot q(y\mid x)\). But in Equations~\ref{eq:pxy} and~\ref{eq:pyx}, we get \(P_{x,y} = q(y \mid x)\) and \(P_{y,x} = q(x \mid y)\). Thus, the detailed-balance equation is still satisfied.
+		\end{itemize}
+		For \(x=y\), the detailed-balance equation is trivial. Thus, the chain is reversible with respect to \(\rho\), and \(\rho\) is stationary.
+		
+		\paragraph{Ergodicity.} For irreducibility, the proposed distribution \(q(\cdot\mid x)\) must ensure that every support state is reachable; i.e., \(q(\theta \mid x) \neq 0\) when \(\rho(\theta) > 0\). Also, from Equation~\ref{eq:self_loop}, there is a non-zero probability of self-loop (i.e., \(P_{x,x} > 0\) when \(q(x\mid x) \neq 0\)) and this implies aperiodicity. These are the conditions for \(q(\cdot\mid x)\) to induce a chain that is ergodic, albeit a more relaxed version is available. The usual proposed distribution is typically a uniform centered at current state \(x\). In this case, \(q(y\mid x) = q(x\mid y)\) and thus the acceptance probability is simply the ratio \(\min(1, \rho(y)/\rho(x))\).
 	\end{analysis}
+	
+	Algorithm~\ref{alg:metropolis}, as written, still applies when \(\rho\) and \(q(\cdot\mid x)\) are continuous densities. However, its formal analysis requires continuous-state transition kernels and more general notions of ergodicity.
 	
 	\section*{Acknowledgement}
 	I would like to acknowledge \emph{Probability and Computing: Randomization and Probabilistic Techniques in Algorithms and Data Analysis}, 2nd edition, by Michael Mitzenmacher and Eli Upfal, as the primary source of reference for these notes.
